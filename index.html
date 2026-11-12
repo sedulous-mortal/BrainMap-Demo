@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrainMap Demo</title>
+<style>
+  :root {
+    --bg: #f6f5f8;
+    --panel: #ffffff;
+    --ink: #1d1b22;
+    --muted: #6b6775;
+    --line: #dcd8e2;
+    --brain-fill: #ece8f0;
+    --brain-stroke: #9e97a8;
+    --dot: #c4bfcc;
+    --low: #3b82f6;   /* blue: slightly involved */
+    --high: #ec4899;  /* pink: very involved */
+    --focus: #1d1b22;
+    --warn-bg: #fff4e5;
+    --warn-ink: #7a4b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121016;
+      --panel: #1b1920;
+      --ink: #ece9f1;
+      --muted: #a39dad;
+      --line: #34303c;
+      --brain-fill: #24212b;
+      --brain-stroke: #5d5768;
+      --dot: #4a4553;
+      --low: #4f8dff;
+      --high: #ff5cad;
+      --focus: #ffffff;
+      --warn-bg: #3a2a10;
+      --warn-ink: #ffd28a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121016; --panel: #1b1920; --ink: #ece9f1; --muted: #a39dad; --line: #34303c;
+    --brain-fill: #24212b; --brain-stroke: #5d5768; --dot: #4a4553;
+    --low: #4f8dff; --high: #ff5cad; --focus: #ffffff; --warn-bg: #3a2a10; --warn-ink: #ffd28a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  button {
+    font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer;
+  }
+  button.primary { background: var(--high); border-color: var(--high); color: #fff; }
+  form.ask { display: flex; gap: 8px; margin: 16px 0 6px; }
+  form.ask input {
+    flex: 1; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+  #status { min-height: 1.5em; color: var(--muted); font-size: .92rem; }
+  #status.error { color: var(--warn-ink); background: var(--warn-bg); padding: 6px 10px; border-radius: 6px; }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  @media (max-width: 760px) { .views { grid-template-columns: 1fr; } }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  figcaption { font-size: .85rem; color: var(--muted); padding: 0 4px 4px; }
+  svg { width: 100%; height: auto; display: block; }
+  .outline { fill: var(--brain-fill); stroke: var(--brain-stroke); stroke-width: 1.5; }
+  .callosum { fill: none; stroke: var(--brain-stroke); stroke-width: 6; stroke-linecap: round; opacity: .5; }
+  .placeholder-note { fill: var(--muted); font-size: 9px; font-style: italic; }
+  .region { cursor: pointer; }
+  .region .dot { fill: var(--dot); stroke: var(--panel); stroke-width: 1; }
+  .region .glow { opacity: 0; transition: opacity .25s; }
+  .region.on .glow { opacity: .85; }
+  .region .label { font-size: 8.5px; fill: var(--muted); pointer-events: none; }
+  .region.on .label { fill: var(--ink); font-weight: 600; }
+  .region.focus .dot { stroke: var(--focus); stroke-width: 2.5; }
+  .legend { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); margin: 12px 0 4px; }
+  .legend .bar { flex: 0 0 160px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--low), var(--high)); }
+  h2 { font-size: 1.15rem; margin: 22px 0 8px; }
+  .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tbody tr { cursor: pointer; }
+  tbody tr.focus { outline: 2px solid var(--focus); outline-offset: -2px; }
+  td.level { white-space: nowrap; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; }
+  .empty { padding: 16px; color: var(--muted); }
+  #tooltip {
+    position: fixed; z-index: 10; max-width: 280px; pointer-events: none; display: none;
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: .85rem; box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  }
+  #tooltip strong { display: block; margin-bottom: 2px; }
+  dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); max-width: 420px; width: calc(100% - 32px); }
+  dialog input { width: 100%; font: inherit; padding: 8px 10px; margin: 8px 0; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  dialog p { font-size: .9rem; color: var(--muted); }
+  .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  footer { margin-top: 28px; font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>BrainMap Demo</h1>
+    <button type="button" id="keyBtn">API key</button>
+  </header>
+
+  <form class="ask" id="askForm" autocomplete="off">
+    <input id="situation" list="presetList" placeholder="Type a situation, e.g. breaking up with partner" aria-label="Life situation">
+    <button class="primary" type="submit">Show</button>
+  </form>
+  <datalist id="presetList"></datalist>
+  <div id="status" role="status"></div>
+
+  <div class="views">
+    <figure><svg id="sideView" viewBox="0 0 420 320" role="img" aria-label="Side cutaway view of the brain"></svg><figcaption>Side view (midline cutaway)</figcaption></figure>
+    <figure><svg id="frontView" viewBox="0 0 420 320" role="img" aria-label="Front cutaway view of the brain"></svg><figcaption>Front view (cutaway slice)</figcaption></figure>
+  </div>
+  <div class="legend"><span>Slightly involved</span><span class="bar"></span><span>Very involved</span></div>
+
+  <h2 id="tableTitle">Regions involved</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Region</th><th>Involvement</th><th>Produced here</th><th>Used here</th><th>In this situation</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="5" class="empty">Type a situation above to see which regions light up.</td></tr></tbody>
+    </table>
+  </div>
+
+  <footer>
+    For personal learning, not medical advice. Region positions are drawn on a placeholder outline until the Wikimedia Commons drawings (CC BY-SA) are added.
+  </footer>
+</main>
+
+<div id="tooltip"></div>
+
+<dialog id="keyDialog">
+  <form method="dialog" id="keyForm">
+    <strong>Claude API key</strong>
+    <p>Used only when a situation doesn't match one of the 50 presets. The key is saved in this browser only and is sent only to Anthropic's API.</p>
+    <input id="keyInput" type="password" placeholder="sk-ant-..." autocomplete="off">
+    <div class="dialog-actions">
+      <button type="button" id="keyClear">Remove key</button>
+      <button type="button" id="keyCancel">Cancel</button>
+      <button class="primary" type="submit" value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+// ---------------------------------------------------------------------------
+// Regions: general function (tooltips), default chemistry, positions per view.
+// Positions are [x, y, labelSide] in a 420x320 viewBox; labelSide is
+// 'r', 'l' or null (null = no label, used for the mirrored twin in the front view).
+// These coordinates fit the placeholder outlines and will be re-fitted to the
+// Wikimedia drawings.
+// ---------------------------------------------------------------------------
+const REGIONS = {
+  pfc:     { name: "Prefrontal cortex", fn: "Planning, decisions, self-control and working memory; can calm the amygdala's alarm.",
+             produces: "Glutamate, GABA", uses: "Dopamine, norepinephrine, serotonin, acetylcholine, cortisol",
+             side: [[78, 92, 'r']], front: [] },
+  ofc:     { name: "Orbitofrontal / ventromedial prefrontal cortex", fn: "Weighs value and reward, links feelings to choices, and updates expectations.",
+             produces: "Glutamate, GABA", uses: "Dopamine, serotonin, endorphins, oxytocin",
+             side: [[82, 172, 'r']], front: [] },
+  acc:     { name: "Anterior cingulate cortex", fn: "Notices conflict and errors and registers how much pain (physical or social) hurts.",
+             produces: "Glutamate, GABA", uses: "Endorphins, dopamine, serotonin, oxytocin, norepinephrine",
+             side: [[140, 104, 'l']], front: [[196, 84, 'l'], [224, 84, null]] },
+  insula:  { name: "Insula", fn: "Reads the body's internal state (heartbeat, gut, pain) and turns it into feelings such as disgust or longing.",
+             produces: "Glutamate, GABA", uses: "Dopamine, serotonin, endorphins, oxytocin",
+             side: [[162, 148, 'l']], front: [[116, 132, 'l'], [304, 132, null]] },
+  amyg:    { name: "Amygdala", fn: "Threat and emotion detector; tags experiences as important and triggers the stress response.",
+             produces: "GABA, glutamate", uses: "Norepinephrine, cortisol, CRH, oxytocin, vasopressin, serotonin, endocannabinoids",
+             side: [[166, 204, 'l']], front: [[134, 184, 'l'], [286, 184, null]] },
+  hippo:   { name: "Hippocampus", fn: "Forms new memories and gives them context (where and when); sensitive to stress hormones.",
+             produces: "Glutamate, GABA", uses: "Cortisol, acetylcholine, norepinephrine, serotonin, estrogen",
+             side: [[222, 210, 'r']], front: [[162, 202, 'l'], [258, 202, null]] },
+  hypo:    { name: "Hypothalamus", fn: "Master controller of hormones, hunger, thirst, temperature, sleep and the stress response.",
+             produces: "CRH, oxytocin, vasopressin, orexin, TRH, GnRH, dopamine", uses: "Cortisol (feedback), leptin, ghrelin, estrogen, testosterone, serotonin",
+             side: [[196, 180, 'r']], front: [[210, 176, 'r']] },
+  pit:     { name: "Pituitary gland", fn: "Releases hormones into the blood on the hypothalamus's orders, steering the adrenal, thyroid and sex glands.",
+             produces: "ACTH, β-endorphin, prolactin, growth hormone, TSH, LH/FSH; releases oxytocin and vasopressin", uses: "CRH, TRH, GnRH, dopamine, cortisol (feedback)",
+             side: [[192, 224, 'l']], front: [[210, 196, 'l']] },
+  thal:    { name: "Thalamus", fn: "Relay hub that routes senses to the cortex and helps set alertness.",
+             produces: "Glutamate, GABA", uses: "Acetylcholine, norepinephrine, serotonin",
+             side: [[232, 140, 'r']], front: [[194, 120, 'l'], [226, 120, null]] },
+  nacc:    { name: "Nucleus accumbens", fn: "Core of the reward circuit; drives wanting, motivation and pleasure.",
+             produces: "GABA, enkephalin, dynorphin", uses: "Dopamine, endorphins, oxytocin, glutamate, serotonin",
+             side: [[126, 162, 'l']], front: [[180, 146, 'l'], [240, 146, null]] },
+  dstr:    { name: "Dorsal striatum", fn: "Turns repeated actions into habits and skills; part of the movement and reward loop.",
+             produces: "GABA, enkephalin, dynorphin", uses: "Dopamine, glutamate, acetylcholine",
+             side: [[196, 122, 'r']], front: [[160, 112, 'l'], [260, 112, null]] },
+  vta:     { name: "Ventral tegmental area", fn: "Source of the brain's reward dopamine; fires for pleasure, surprise and things worth chasing.",
+             produces: "Dopamine, GABA", uses: "Glutamate, endorphins, orexin, ghrelin, oxytocin",
+             side: [[250, 182, 'r']], front: [[210, 220, 'r']] },
+  lc:      { name: "Locus coeruleus", fn: "Main source of norepinephrine; switches on alertness, vigilance and fight-or-flight.",
+             produces: "Norepinephrine", uses: "CRH, orexin, glutamate, GABA",
+             side: [[272, 230, 'r']], front: [[222, 272, 'r']] },
+  raphe:   { name: "Raphe nuclei", fn: "Main source of serotonin; shapes mood, patience, sleep and appetite.",
+             produces: "Serotonin", uses: "Norepinephrine, GABA, CRH",
+             side: [[262, 212, 'r']], front: [[210, 256, 'l']] },
+  pag:     { name: "Periaqueductal gray", fn: "Built-in pain control and defensive behaviours (freeze, flee, fight).",
+             produces: "Endorphins, enkephalins, GABA, glutamate", uses: "Endorphins, endocannabinoids, oxytocin",
+             side: [[268, 166, 'r']], front: [[210, 238, 'l']] },
+  motor:   { name: "Motor cortex", fn: "Plans and sends commands for voluntary movement.",
+             produces: "Glutamate", uses: "Dopamine, acetylcholine, norepinephrine",
+             side: [[196, 40, 'r']], front: [[150, 42, 'l'], [270, 42, null]] },
+  somato:  { name: "Somatosensory cortex", fn: "Maps touch, temperature, pain and body position.",
+             produces: "Glutamate, GABA", uses: "Endorphins, norepinephrine, acetylcholine",
+             side: [[252, 46, 'r']], front: [[100, 74, 'l'], [320, 74, null]] },
+  audit:   { name: "Auditory cortex", fn: "Processes sound, speech and music.",
+             produces: "Glutamate, GABA", uses: "Acetylcholine, norepinephrine",
+             side: [], front: [[84, 160, 'l'], [336, 160, null]] },
+  visual:  { name: "Visual cortex", fn: "Processes what you see: shape, motion, colour and faces.",
+             produces: "Glutamate, GABA", uses: "Acetylcholine, norepinephrine",
+             side: [[382, 150, 'l']], front: [] },
+  cereb:   { name: "Cerebellum", fn: "Coordinates and fine-tunes movement, balance and timing; helps learn motor skills.",
+             produces: "GABA (Purkinje cells), glutamate", uses: "Norepinephrine, serotonin, acetylcholine",
+             side: [[332, 242, 'r']], front: [[150, 280, 'l'], [270, 280, null]] },
+  stem:    { name: "Brainstem (medulla and vagal centres)", fn: "Runs automatic functions: heart rate, breathing, blood pressure, digestion.",
+             produces: "Norepinephrine, adrenaline (C1 neurons), acetylcholine (vagus nerve)", uses: "Serotonin, endorphins, angiotensin",
+             side: [[264, 282, 'r']], front: [[210, 294, 'r']] },
+  pineal:  { name: "Pineal gland", fn: "Releases melatonin in darkness to signal night and time sleep.",
+             produces: "Melatonin", uses: "Norepinephrine (night signal from the hypothalamus)",
+             side: [[282, 146, 'r']], front: [] },
+  bf:      { name: "Basal forebrain", fn: "Acetylcholine source that sharpens attention and wakefulness; where adenosine builds sleep pressure.",
+             produces: "Acetylcholine, GABA", uses: "Adenosine, norepinephrine, orexin, histamine",
+             side: [[150, 184, 'l']], front: [[194, 162, 'l'], [226, 162, null]] },
+};
+
+// ---------------------------------------------------------------------------
+// Matching vocabulary shared by several presets.
+// ---------------------------------------------------------------------------
+const DIE     = /\b(die|dies|died|dying|death|dead|passed away|passing|pass away|lost|losing|loss|terminal|put down|put to sleep|euthani[sz]ed?)\b/;
+const PARENT  = /\b(mom|mum|mother|mama|dad|father|papa|parents?)\b/;
+const PET     = /\b(pets?|dogs?|cats?|puppy|kitten|hamster|rabbit|bunny|bird|parrot|horse|guinea pig|ferret)\b/;
+const FRIEND  = /\b(friends?|best friend|bff|buddy|pal|mate)\b/;
+const PARTNER = /\b(partner|boyfriend|girlfriend|bf|gf|husband|wife|spouse|fianc[eé]e?|ex|relationship|significant other)\b/;
+const WORK    = /\b(work|workplace|job|office|boss|coworkers?|co-workers?|colleagues?|manager|team ?mates?|employer)\b/;
+
+// Each preset: rules are [pattern, weight]; a preset matches when its score
+// reaches `min` (default 4). Highest score wins; ties go to the preset that
+// matched more rules, then to the earlier preset.
+// regions: id -> [involvement 1-5, how the region is involved in this situation]
+const PRESETS = [
+  // Loss and grief
+  { title: "Parent dying", rules: [[PARENT, 2], [DIE, 2]], regions: {
+    acc:    [5, "Registers the loss as social pain; the same circuit that signals physical hurt makes grief ache."],
+    nacc:   [4, "Yearning: the reward system still expects your parent, so missing them feels like craving something you can't have."],
+    amyg:   [4, "Heightened emotional reactivity and anxiety, especially in the early days."],
+    hypo:   [4, "Starts the stress hormone cascade (CRH), which keeps cortisol high during acute grief."],
+    pit:    [3, "Releases ACTH in response to CRH, driving the adrenal glands to make cortisol."],
+    hippo:  [3, "Replays memories of your parent; high cortisol can make concentration and new memories harder."],
+    pfc:    [3, "Tries to make sense of the loss and handle practical tasks, often feeling foggy under stress."],
+    insula: [3, "Turns grief into body feelings: tight chest, hollow stomach, heaviness."],
+  }},
+  { title: "Losing a pet", rules: [[PET, 2], [DIE, 2]], regions: {
+    acc:    [4, "Signals the pain of losing a bonded companion, much like losing a family member."],
+    nacc:   [4, "The daily rewards of the pet (greetings, touch) are gone; the reward system keeps expecting them."],
+    hypo:   [3, "Oxytocin from contact with the pet drops away while stress hormones rise."],
+    amyg:   [3, "Emotional distress and reactivity; reminders like the empty bed trigger waves of sadness."],
+    hippo:  [3, "Strong routine memories (walks, feeding times) keep surfacing at the usual moments."],
+    insula: [2, "Physical sense of absence and sadness in the body."],
+  }},
+  { title: "Death of a close friend", rules: [[FRIEND, 2], [DIE, 2]], regions: {
+    acc:    [5, "Social pain from losing a key relationship."],
+    nacc:   [4, "Yearning for the friend; the reward system still anticipates their company."],
+    amyg:   [4, "Shock and heightened emotion, especially if the death was sudden."],
+    hypo:   [3, "Raises CRH, starting a stress response that can disrupt sleep and appetite."],
+    hippo:  [3, "Recalls shared memories; stress can make everyday memory patchy."],
+    pfc:    [3, "Works to accept and make meaning of the loss."],
+    insula: [3, "Felt grief in the body: heaviness, lump in the throat."],
+  }},
+  { title: "Attending a funeral", rules: [[/\b(funeral|memorial( service)?|wake|burial|eulogy|casket|cremation)\b/, 4]], regions: {
+    acc:    [4, "Shared grief and social pain, amplified by seeing others mourn."],
+    insula: [4, "Empathy: you feel others' sadness in your own body."],
+    amyg:   [3, "Emotional arousal at reminders of the loss and of mortality."],
+    hippo:  [3, "Brings up memories of the person and of past losses."],
+    pfc:    [3, "Keeps composure in a public setting, regulating tears and speech."],
+    hypo:   [3, "Oxytocin from hugs and closeness helps buffer stress; CRH is also raised."],
+  }},
+  { title: "Miscarriage or pregnancy loss", rules: [[/\b(miscarr\w*|pregnancy loss|stillbirth|stillborn|lost (the|our|my) baby|ectopic)\b/, 4]], regions: {
+    acc:    [5, "Intense grief and social pain over the lost future with the baby."],
+    hypo:   [4, "Pregnancy hormone signals (hCG, progesterone, estrogen) fall quickly, affecting mood and stress control."],
+    pit:    [3, "Hormone shifts after the loss; prolactin can rise, sometimes with milk coming in."],
+    amyg:   [4, "Heightened anxiety and emotional reactivity, often lasting into later pregnancies."],
+    nacc:   [3, "Loss of an anticipated reward; yearning for the expected child."],
+    pfc:    [3, "Searches for reasons and self-blame; working to make sense of what happened."],
+    insula: [3, "Body-centred grief: physical emptiness and pain."],
+  }},
+  // Relationships
+  { title: "Breaking up with a partner", min: 3, rules: [[/\b(break(ing)? up|broke up|breakup|dumped|split up|splitting up|divorc\w*|separat(ed|ing)|ended (the|our|my) relationship)\b/, 3], [PARTNER, 1]], regions: {
+    acc:    [5, "Social rejection pain; brain scans of fresh break-ups show this region lighting up like physical pain."],
+    vta:    [4, "Still fires dopamine for the ex, so the craving resembles withdrawal."],
+    nacc:   [4, "Yearning and craving for the lost partner; reminders feel rewarding and painful at once."],
+    ofc:    [4, "Re-evaluates the relationship's value; rumination over what went wrong."],
+    amyg:   [3, "Hurt, anger and anxiety, triggered by reminders of the ex."],
+    hypo:   [3, "Raises the stress hormones (CRH, then cortisol) as oxytocin from closeness drops."],
+    pfc:    [3, "Tries to regulate urges to contact the ex; effort is strained under stress."],
+  }},
+  { title: "Falling in love", rules: [[/\b(fall(ing)? in love|fell in love|in love|crush|smitten|infatuat\w*|head over heels)\b/, 4]], regions: {
+    vta:    [5, "Floods the reward system with dopamine when you think of or see the person."],
+    nacc:   [5, "Intense wanting and pleasure focused on one person."],
+    hypo:   [4, "Releases oxytocin and vasopressin, which build bonding; sex hormones also rise."],
+    dstr:   [3, "Focus and motivation around the person; romantic love activates the caudate strongly."],
+    raphe:  [3, "Early love lowers serotonin activity, a pattern linked to obsessive thoughts about the person."],
+    amyg:   [2, "Quieter than usual: fear and judgement are partly switched off."],
+    pfc:    [2, "Critical judgement of the person is partly reduced (\"love is blind\")."],
+  }},
+  { title: "First kiss", min: 3, rules: [[/\bfirst kiss\b/, 4], [/\bkiss(es|ed|ing)?\b/, 3]], regions: {
+    vta:    [5, "A burst of dopamine reward and novelty."],
+    nacc:   [4, "Pleasure and wanting more."],
+    somato: [4, "Lips are among the most densely mapped body areas, so touch signals are vivid."],
+    hypo:   [3, "Releases oxytocin (bonding) and kicks off arousal hormones."],
+    amyg:   [3, "Excitement and nerves; heightened emotional significance."],
+    hippo:  [3, "Tags the moment as a vivid, lasting memory."],
+    lc:     [3, "Norepinephrine raises heart rate and the \"butterflies\" feeling."],
+  }},
+  { title: "Getting married", rules: [[/\b(married|marry|marrying|wedding|tie the knot|tying the knot|vows|engaged|engagement|proposal|propos(e|ed|ing))\b/, 4]], regions: {
+    hypo:   [4, "Oxytocin and vasopressin support pair bonding during vows and closeness."],
+    vta:    [4, "Dopamine reward from the milestone and celebration."],
+    nacc:   [4, "Joy and anticipation."],
+    amyg:   [3, "Excitement and nerves: big day, crowd, emotions."],
+    hippo:  [3, "Encodes the day as a lasting, detailed memory."],
+    lc:     [3, "Norepinephrine heightens alertness and adrenaline-like excitement."],
+    pfc:    [2, "Keeps track of the day's plan and commitments."],
+  }},
+  { title: "Discovering a partner cheated", min: 3, rules: [[/\b(cheat(ed|ing|er)?|affair|unfaithful|infidelity|betray(ed|al)?)\b/, 3], [PARTNER, 1]], regions: {
+    amyg:   [5, "Threat and anger response to betrayal."],
+    acc:    [5, "Social pain and betrayal; detects the clash between what you believed and what's true."],
+    insula: [4, "Visceral disgust and a sick feeling in the gut."],
+    hypo:   [4, "Fast stress response: CRH, then adrenaline and cortisol."],
+    lc:     [3, "Norepinephrine keeps you hyper-alert, replaying details."],
+    ofc:    [4, "Re-values the partner and the relationship; trust signals collapse."],
+    pfc:    [3, "Tries to control anger and make decisions."],
+  }},
+  { title: "Arguing with a partner", rules: [[/\b(argu(e|ed|ing|ment)|fight|fighting|fought|yell(ing|ed)?|shout(ing|ed)?|quarrel\w*|row|disagree\w*|bicker\w*)\b/, 2], [PARTNER, 2]], regions: {
+    amyg:   [4, "Treats the conflict as a threat; drives anger and defensiveness."],
+    acc:    [4, "Detects conflict and the sting of hurtful words."],
+    lc:     [3, "Norepinephrine raises heart rate and tension."],
+    hypo:   [3, "Raises stress hormones (CRH, cortisol)."],
+    pfc:    [3, "Struggles to keep you calm; strained when emotions run high."],
+    insula: [3, "Body tension and the feeling of anger or hurt."],
+  }},
+  { title: "Making up after a fight", rules: [[/\b(make up|making up|made up|reconcil\w*|apologi[sz]\w*|forgive|forgave|forgiven|say(ing)? sorry|said sorry)\b/, 3], [/\b(fight|fought|argu\w*)\b/, 1], [PARTNER, 1]], regions: {
+    hypo:   [4, "Oxytocin release during reconnection and touch."],
+    nacc:   [4, "Relief and reward from restoring the bond."],
+    vta:    [3, "Dopamine reward for resolution."],
+    pfc:    [3, "Calms the emotional reaction, helping you see the other side."],
+    amyg:   [2, "Threat response settles down."],
+    acc:    [3, "Resolves the sense of conflict; empathy for your partner."],
+  }},
+  { title: "Feeling lonely", rules: [[/\b(lonel\w*|alone|isolat\w*|no friends|nobody|no one to talk|left out)\b/, 4]], regions: {
+    acc:    [4, "Social pain from missing connection."],
+    amyg:   [3, "Heightened vigilance for social threats; loneliness makes the brain more alert to rejection."],
+    hypo:   [3, "Raised cortisol over time; less oxytocin from contact."],
+    nacc:   [3, "Craving for social reward, similar to hunger."],
+    insula: [3, "Feeling of emptiness in the body."],
+    raphe:  [2, "Low serotonin tone, linked to low mood."],
+  }},
+  { title: "Being rejected", rules: [[/\b(reject\w*|turned down|ghosted|left on read|snubbed|excluded|didn'?t get picked|not chosen|stood up)\b/, 4]], regions: {
+    acc:    [5, "Social pain: rejection uses the same alarm system as physical pain."],
+    insula: [4, "The physical sting and sinking feeling."],
+    amyg:   [3, "Emotional distress and threat to social standing."],
+    pag:    [3, "Releases natural opioids to dull the hurt."],
+    pfc:    [3, "Reframes the rejection, which helps recovery."],
+    hypo:   [3, "Raises stress hormones."],
+  }},
+  { title: "Reuniting with someone after a long time", rules: [[/\b(reunit\w*|reunion|long time no see|haven'?t seen|after (so many|many|several)? ?(years|months)|came home|homecoming)\b/, 4]], regions: {
+    hypo:   [4, "Oxytocin surge with hugs and closeness."],
+    vta:    [4, "Dopamine reward of seeing someone you've missed."],
+    nacc:   [4, "Joy and pleasure."],
+    hippo:  [4, "Old memories flood back, linked to the person."],
+    amyg:   [3, "Emotional intensity; can bring tears of happiness."],
+    visual: [3, "Face recognition kicks in quickly for a familiar face."],
+  }},
+  // Danger and stress
+  { title: "Car crash", rules: [[/\b(crash\w*|collision|wreck\w*|totaled|totalled|rear.?ended|hit by a car|car accident|accident)\b/, 3], [/\b(car|drive|driving|road|highway|traffic|vehicle|motorcycle)\b/, 1]], min: 3, regions: {
+    amyg:   [5, "Instant threat alarm, then strong fear memories of the crash."],
+    lc:     [5, "Norepinephrine surge: hyper-alertness, racing heart."],
+    hypo:   [5, "Starts fight-or-flight (adrenaline via nerves) and the cortisol response."],
+    pag:    [4, "Releases natural painkillers, so injuries may not hurt at first."],
+    stem:   [4, "Drives heart rate, breathing and blood pressure up."],
+    hippo:  [3, "Memory may be fragmented; stress hormones make the emotional parts vivid."],
+    thal:   [3, "Fast-tracks sensory alarm to the amygdala."],
+    pfc:    [2, "Thinking clearly is hard as stress chemicals switch it partly offline."],
+  }},
+  { title: "Near miss while driving", rules: [[/\b(near miss|almost (crashed|hit|got hit)|close call|nearly (crashed|hit)|swerv\w*|slam(med)? on the brakes)\b/, 4]], regions: {
+    amyg:   [4, "Split-second threat detection before you consciously notice."],
+    lc:     [4, "Norepinephrine jolt; heart races and attention snaps on."],
+    thal:   [3, "Quick-and-dirty route from eyes to amygdala for fast reaction."],
+    motor:  [4, "Fast steering and braking movements."],
+    cereb:  [3, "Coordinates the rapid evasive movement."],
+    stem:   [3, "Heart rate and breathing spike, then slowly settle."],
+    hypo:   [3, "Adrenaline burst via nerves to the adrenal glands; shakiness afterwards."],
+  }},
+  { title: "Being chased or threatened", rules: [[/\b(chas(ed|ing)|threat\w*|attacked|being attacked|mugg\w*|robb\w*|held up|gun|knife|stalk\w*|followed me|following me|assault\w*|in danger)\b/, 4]], regions: {
+    amyg:   [5, "Core fear response; drives fight, flight or freeze."],
+    pag:    [5, "Selects defensive behaviour (run, freeze, fight) and blocks pain."],
+    hypo:   [5, "Full fight-or-flight: adrenaline and cortisol release."],
+    lc:     [5, "Norepinephrine floods the brain for maximum alertness."],
+    stem:   [4, "Heart and breathing rate soar; blood pressure rises."],
+    motor:  [3, "Prepares fast escape movements."],
+    hippo:  [3, "Stores where the danger happened, making that place feel unsafe later."],
+    pfc:    [2, "Reasoning is temporarily sidelined by the survival response."],
+  }},
+  { title: "Hearing a sudden loud noise", min: 3, rules: [[/\b(loud|bang|explosion|gunshot|fireworks?|thunder|startl\w*|jump ?scare|alarm went off|slammed)\b/, 3]], regions: {
+    audit:  [4, "Processes the sudden sound."],
+    stem:   [4, "Triggers the startle reflex (blink, flinch) within milliseconds."],
+    amyg:   [4, "Checks whether the sound means danger."],
+    lc:     [4, "Burst of norepinephrine: instant alertness."],
+    thal:   [3, "Relays the sound to the amygdala and cortex."],
+    pfc:    [2, "Decides it's harmless and calms you down."],
+  }},
+  { title: "Public speaking", rules: [[/\b(public speaking|speech|presentation|presenting|talk in front|on stage|stage fright|audience|pitch(ing)?|toast)\b/, 4]], regions: {
+    amyg:   [4, "Fear of judgement by the audience."],
+    lc:     [4, "Norepinephrine raises heart rate, sweating and dry mouth."],
+    hypo:   [4, "Cortisol and adrenaline climb as you get ready to speak."],
+    pfc:    [4, "Holds your talking points and regulates nerves."],
+    motor:  [3, "Speech and gestures; can feel shaky."],
+    insula: [3, "You notice the racing heart and butterflies."],
+    acc:    [3, "Monitors for mistakes and audience reactions."],
+  }},
+  { title: "Job interview", rules: [[/\binterview\w*\b/, 4]], regions: {
+    pfc:    [4, "Retrieves answers, plans responses and manages impressions."],
+    amyg:   [3, "Nerves about being evaluated."],
+    hypo:   [3, "Stress hormones rise before and during the interview."],
+    lc:     [3, "Norepinephrine heightens focus (and jitters)."],
+    hippo:  [3, "Pulls up examples and past experience."],
+    acc:    [3, "Monitors the interviewer's reactions and your own errors."],
+  }},
+  { title: "Missing a deadline", rules: [[/\b(deadline|overdue|behind on|late (on|with)|missed the due|due date|ran out of time|running out of time)\b/, 4]], regions: {
+    acc:    [4, "Error signal: the gap between plan and reality."],
+    amyg:   [3, "Worry about consequences and others' judgement."],
+    hypo:   [3, "Cortisol rises with the sense of pressure."],
+    pfc:    [4, "Re-plans and prioritises; can be overwhelmed under stress."],
+    insula: [2, "Unease and guilt in the body."],
+    lc:     [3, "Norepinephrine-driven urgency."],
+  }},
+  { title: "Getting lost", rules: [[/\b((got|get|getting|am|i'?m|we'?re) lost|lost my way|can'?t find my way|wrong turn|no idea where i am|disoriented)\b/, 4]], regions: {
+    hippo:  [5, "Its place and grid cells try to rebuild your mental map."],
+    pfc:    [3, "Plans a new route and makes decisions."],
+    amyg:   [3, "Anxiety at not knowing where you are."],
+    lc:     [3, "Raises alertness to scan for landmarks."],
+    visual: [3, "Searches the scene for familiar landmarks."],
+    hypo:   [2, "Mild stress hormone response."],
+  }},
+  { title: "Panic attack", rules: [[/\b(panic\w*|anxiety attack|hyperventilat\w*|can'?t breathe|heart (is )?racing)\b/, 4]], regions: {
+    amyg:   [5, "Fires a false alarm as if in grave danger."],
+    insula: [5, "Over-reads body signals (racing heart, breathlessness), feeding the fear."],
+    lc:     [5, "Norepinephrine surge drives the physical symptoms."],
+    stem:   [4, "Rapid breathing and heart rate; hyperventilation changes blood CO₂."],
+    hypo:   [4, "Adrenaline and cortisol release."],
+    pag:    [3, "Defensive \"escape\" urge."],
+    pfc:    [2, "Struggles to reassure you that you're safe."],
+  }},
+  { title: "Receiving a scary medical diagnosis", rules: [[/\b(diagnos\w*|cancer|tumou?r|biopsy|test results|scan results|terminal|serious illness|bad news from (the )?doctor)\b/, 4], [/\b(doctor|medical|hospital)\b/, 2]], regions: {
+    amyg:   [5, "Fear and threat response to a danger inside your own body."],
+    hypo:   [4, "Prolonged stress hormone release."],
+    pfc:    [4, "Takes in information and weighs treatment options; easily overloaded."],
+    acc:    [4, "Distress and uncertainty about the future."],
+    insula: [3, "Heightened awareness of body sensations."],
+    hippo:  [3, "Details from the appointment may be hard to remember under stress."],
+  }},
+  // Work and money
+  { title: "Getting fired", rules: [[/\b(fired|laid off|layoffs?|let go|lost my job|lose my job|losing my job|terminated|sacked|unemployed)\b/, 4]], regions: {
+    acc:    [4, "Social and status pain; error and failure signals."],
+    amyg:   [4, "Shock and fear about money and the future."],
+    hypo:   [4, "Ongoing stress hormone release."],
+    ofc:    [3, "Recalculates plans, value and self-worth."],
+    pfc:    [3, "Plans next steps; rumination makes it harder."],
+    insula: [3, "Gut-level shame or anger."],
+  }},
+  { title: "Getting promoted", rules: [[/\b(promot\w*|pay raise|got a raise|a raise|new title|moved up)\b/, 4]], regions: {
+    vta:    [4, "Dopamine reward for recognition."],
+    nacc:   [4, "Pleasure and motivation."],
+    ofc:    [3, "Registers the boost in status and value."],
+    pfc:    [3, "Starts planning new responsibilities."],
+    raphe:  [2, "Higher status is linked with better serotonin tone and confidence."],
+  }},
+  { title: "Starting a new job", rules: [[/\b(new job|first day|start(ing|ed)? (a |my )?(new )?(job|role|position)|onboarding|got hired|got the job)\b/, 4]], regions: {
+    hippo:  [4, "Learns names, places and procedures."],
+    pfc:    [4, "Juggles new tasks and expectations."],
+    vta:    [3, "Novelty and opportunity give a dopamine lift."],
+    amyg:   [3, "Nerves about fitting in and performing."],
+    hypo:   [3, "Mild stress hormone rise from the unfamiliar."],
+    bf:     [3, "Acetylcholine boosts attention and learning."],
+  }},
+  { title: "Receiving unexpected bills", min: 3, rules: [[/\b(bills?|debt|owe|overdraft|expenses?|can'?t afford|money problems|broke(?! up)|taxes|fees?)\b/, 3]], regions: {
+    amyg:   [4, "Threat response to financial danger."],
+    pfc:    [4, "Budgeting and problem-solving."],
+    acc:    [3, "Distress at the gap between expected and actual money."],
+    hypo:   [3, "Stress hormones rise."],
+    insula: [3, "Anticipating loss feels unpleasant, almost like pain."],
+  }},
+  { title: "Winning money", rules: [[/\b(won|win|winning|lottery|jackpot|windfall|inherit\w*)\b/, 2], [/(\$|\b(money|cash|lottery|jackpot|dollars|pounds|prize money)\b)/, 2]], regions: {
+    vta:    [5, "Big dopamine surge from an unexpected reward."],
+    nacc:   [5, "Intense pleasure and excitement."],
+    ofc:    [4, "Values the gain and starts imagining uses for it."],
+    lc:     [3, "Adrenaline-like excitement."],
+    pfc:    [2, "Planning, and sometimes impulse control around spending."],
+  }},
+  { title: "Conflict in the workplace", rules: [[WORK, 2], [/\b(conflict|argu\w*|fight|fought|clash\w*|tension|disagree\w*|yell\w*|bull(y|ied|ying)|toxic|confront\w*)\b/, 2]], regions: {
+    amyg:   [4, "Threat response to confrontation."],
+    acc:    [4, "Detects the conflict and social pain."],
+    pfc:    [4, "Keeps professional composure and plans a response."],
+    hypo:   [3, "Raised cortisol, especially if conflict is ongoing."],
+    insula: [3, "Tension and anger in the body."],
+  }},
+  // Achievement and learning
+  { title: "Learning a new skill", rules: [[/\b(learn\w*|practic\w*|new skill|lesson|lessons|class|course|tutorial|instrument)\b/, 4]], regions: {
+    hippo:  [4, "Forms new memories for facts and steps."],
+    pfc:    [4, "Focused attention and working memory while you're still a beginner."],
+    dstr:   [4, "Gradually turns practised steps into automatic habits."],
+    cereb:  [4, "Refines timing and coordination for physical skills."],
+    bf:     [3, "Acetylcholine sharpens attention and plasticity."],
+    vta:    [3, "Dopamine reward for progress, reinforcing practice."],
+    motor:  [3, "Builds movement maps for physical skills."],
+  }},
+  { title: "Solving a hard problem", rules: [[/\b(solv\w*|figur(e|ed|ing) out|puzzle|riddle|debug\w*|eureka|aha|cracked it|breakthrough)\b/, 4]], regions: {
+    pfc:    [5, "Holds information in mind and tests ideas."],
+    acc:    [4, "Monitors errors and conflicts between approaches."],
+    vta:    [3, "Dopamine burst at the moment of insight."],
+    nacc:   [3, "Satisfaction of the solution."],
+    hippo:  [3, "Retrieves related knowledge."],
+    lc:     [3, "Norepinephrine keeps you focused; a shift in tone can help you see it fresh."],
+  }},
+  { title: "Finishing a big project", min: 3, rules: [[/\b(finish\w*|complet\w*|done with|wrap(ped)? up|shipped|launched|submitted|turned in)\b/, 3], [/\b(project|thesis|book|paper|assignment|dissertation)\b/, 1]], regions: {
+    vta:    [4, "Dopamine reward for reaching the goal."],
+    nacc:   [4, "Satisfaction and relief."],
+    pfc:    [3, "Lets go of the task; planning load drops."],
+    hypo:   [3, "Stress hormones begin to settle."],
+    raphe:  [2, "Contentment linked with serotonin."],
+  }},
+  { title: "Winning a competition", rules: [[/\b(won|win|winning|victory|first place|champion\w*|beat)\b/, 2], [/\b(competition|contest|race|game|match|tournament|award|trophy|medal)\b/, 2]], regions: {
+    vta:    [5, "Strong dopamine reward."],
+    nacc:   [5, "Elation and pleasure."],
+    ofc:    [3, "Registers the status gain."],
+    hypo:   [3, "Testosterone and adrenaline rise with victory."],
+    lc:     [3, "Excitement and arousal."],
+    hippo:  [3, "Encodes a vivid memory of the win."],
+  }},
+  { title: "Taking an exam", rules: [[/\b(exams?|test|tests|quiz|finals?|midterms?|sat|gre|studying for)\b/, 5]], regions: {
+    pfc:    [5, "Working memory and reasoning on questions."],
+    hippo:  [4, "Retrieves what you studied; too much stress can block recall."],
+    amyg:   [3, "Test anxiety."],
+    lc:     [3, "Norepinephrine heightens focus (or jitters)."],
+    hypo:   [3, "Cortisol rises."],
+    acc:    [3, "Checks answers and spots errors."],
+  }},
+  // Body and daily life
+  { title: "Eating a favorite food", rules: [[/\b(eat|eating|ate|food|meal|dinner|lunch|breakfast|dessert|chocolate|pizza|ice cream|snack|tasty|delicious|cake)\b/, 4]], regions: {
+    insula: [4, "Primary taste cortex: flavour and texture."],
+    ofc:    [4, "Judges how pleasant the food is; tracks fullness."],
+    nacc:   [4, "Pleasure from a favourite taste; endorphins add to the enjoyment."],
+    vta:    [3, "Dopamine as you anticipate and eat."],
+    hypo:   [3, "Hunger and fullness signals (ghrelin down, leptin and gut hormones up)."],
+    stem:   [2, "Vagal signals from the gut about digestion."],
+  }},
+  { title: "Exercising hard", rules: [[/\b(exercis\w*|workout|work out|working out|running|went for a run|go for a run|jog\w*|gym|lifting|cardio|marathon|sprint\w*|swimming|cycling|spin class|hiit)\b/, 4]], regions: {
+    motor:  [5, "Drives muscle contractions."],
+    cereb:  [4, "Coordinates rhythm and balance."],
+    stem:   [4, "Raises heart rate, breathing and blood pressure."],
+    hypo:   [4, "Body temperature control, stress hormones and growth hormone release."],
+    pit:    [3, "Releases β-endorphin and growth hormone."],
+    pag:    [3, "Natural opioids and endocannabinoids create the \"runner's high\"."],
+    vta:    [3, "Dopamine reward, especially after exercise."],
+  }},
+  { title: "Being sleep deprived", rules: [[/\b(sleep deprived|sleep|insomnia|all.?nighter|tired|exhausted|no sleep|didn'?t sleep|up all night|fatigue)\b/, 4]], regions: {
+    bf:     [4, "Adenosine builds up here, driving heavy sleep pressure."],
+    pfc:    [5, "Works poorly: worse focus, judgement and self-control."],
+    amyg:   [4, "Over-reactive emotions (up to 60% more reactive in studies)."],
+    hippo:  [3, "Harder to store new memories."],
+    thal:   [3, "Attention lapses as sensory relay flickers."],
+    hypo:   [3, "Hunger hormones shift (more ghrelin, less leptin); cortisol rhythm off."],
+    pineal: [2, "Melatonin timing is disrupted if you were awake at night."],
+  }},
+  { title: "Waking up from a nightmare", rules: [[/\b(nightmares?|bad dreams?|night terrors?|woke up (screaming|scared|terrified|sweating))\b/, 5]], regions: {
+    amyg:   [5, "Very active during dreaming; fear carries over on waking."],
+    lc:     [4, "Norepinephrine surge as you wake: racing heart."],
+    stem:   [4, "Heart rate and breathing are elevated."],
+    hippo:  [3, "Dream fragments and memories mix together."],
+    pfc:    [3, "Was quiet during dreaming; now switches on to tell you it wasn't real."],
+    hypo:   [2, "Brief stress hormone release."],
+  }},
+  { title: "Physical pain or injury", rules: [[/\b(pain|hurt|hurts|injur\w*|broke my|broken (arm|leg|bone|wrist|ankle)|sprain\w*|cut myself|burn(ed|t)? myself|stubbed|headache|migraine|ache)\b/, 4]], regions: {
+    somato: [5, "Locates the pain: where it is and how intense."],
+    thal:   [4, "Relays pain signals from the spinal cord."],
+    acc:    [4, "The unpleasantness and suffering part of pain."],
+    insula: [4, "The body-awareness part of pain."],
+    pag:    [4, "Releases endorphins to reduce pain."],
+    amyg:   [3, "Fear and alarm about the injury."],
+    stem:   [3, "Blood pressure and heart rate respond."],
+  }},
+  { title: "Drinking coffee", rules: [[/\b(coffee|espresso|latte|caffeine|cappuccino|energy drink|cold brew)\b/, 5]], regions: {
+    bf:     [5, "Caffeine blocks adenosine receptors here, removing the sleepy signal."],
+    lc:     [3, "More norepinephrine, so more alertness."],
+    nacc:   [3, "Caffeine indirectly boosts dopamine signalling, giving a mild lift."],
+    pfc:    [3, "Better focus and reaction time."],
+    stem:   [2, "Slight rise in heart rate."],
+  }},
+  // Joy and connection
+  { title: "Birth of a child", rules: [[/\b(gave birth|giving birth|birth of|baby (was )?born|had a baby|newborn|became a (mom|mum|dad|parent)|labou?r and delivery)\b/, 4]], regions: {
+    hypo:   [5, "Oxytocin surge for bonding (and labour contractions in the birthing parent)."],
+    pit:    [4, "Releases oxytocin and prolactin."],
+    vta:    [4, "Dopamine reward from seeing and holding the baby."],
+    nacc:   [4, "Intense love and joy."],
+    amyg:   [4, "Heightened protectiveness and vigilance for the baby."],
+    hippo:  [3, "Vivid memory of the moment."],
+    insula: [3, "Deep empathy and emotional sensation."],
+  }},
+  { title: "Hugging a loved one", rules: [[/\b(hug\w*|cuddl\w*|embrac\w*|holding hands|snuggl\w*)\b/, 4]], regions: {
+    hypo:   [5, "Releases oxytocin, lowering stress."],
+    somato: [3, "Gentle touch signals."],
+    insula: [3, "The warm, comforting feeling of affective touch."],
+    nacc:   [3, "Pleasure and reward of closeness."],
+    amyg:   [2, "Activity calms down as oxytocin dampens fear."],
+    stem:   [2, "Heart rate and blood pressure fall (vagal calming)."],
+  }},
+  { title: "Laughing with friends", rules: [[/\b(laugh\w*|joke\w*|funny|hilarious|comedy|giggl\w*)\b/, 4]], regions: {
+    nacc:   [4, "Reward from humour."],
+    vta:    [3, "Dopamine release."],
+    pag:    [3, "Releases endorphins; laughing together boosts social bonding."],
+    motor:  [3, "Laughter movements in the face and chest."],
+    stem:   [3, "Breathing patterns of laughter."],
+    pfc:    [3, "\"Gets\" the joke by resolving the surprise."],
+  }},
+  { title: "Listening to favorite music", rules: [[/\b(music|songs?|playlist|concert|album|singing|sing|band|listening to)\b/, 4]], regions: {
+    audit:  [5, "Processes melody, rhythm and harmony."],
+    nacc:   [4, "Pleasure, with peaks at chills-inducing moments."],
+    vta:    [4, "Dopamine both in anticipation and at the peak."],
+    hippo:  [3, "Brings back memories linked to the song."],
+    amyg:   [3, "Emotional response to the music."],
+    cereb:  [3, "Keeps time with the beat."],
+    motor:  [2, "Urge to move or tap along."],
+  }},
+  { title: "Being in nature", rules: [[/\b(nature|forest|woods|hik(e|ing)|beach|ocean|mountains?|park|garden\w*|outdoors|camping|trees|sunset|lake)\b/, 4]], regions: {
+    amyg:   [2, "Activity tends to fall: less threat and rumination."],
+    pfc:    [2, "Rests from demanding focus (attention restoration)."],
+    hypo:   [3, "Cortisol tends to fall."],
+    stem:   [3, "Calmer heart rate (more vagal tone)."],
+    visual: [3, "Takes in natural patterns that are easy to process."],
+    raphe:  [2, "Daylight supports serotonin."],
+  }},
+  { title: "Receiving a gift", rules: [[/\b(gift|present|surprise|got me|gave me)\b/, 4]], regions: {
+    vta:    [4, "Dopamine from a pleasant surprise."],
+    nacc:   [4, "Pleasure of reward."],
+    ofc:    [3, "Values the gift and the gesture."],
+    hypo:   [3, "Oxytocin and feeling cared for."],
+    pfc:    [2, "Reads the giver's thoughtfulness and intentions."],
+  }},
+  { title: "Feeling embarrassed in public", rules: [[/\b(embarrass\w*|humiliat\w*|awkward|mortif\w*|cringe|ashamed|tripped in front|everyone (was )?(staring|laughing at me))\b/, 4]], regions: {
+    pfc:    [4, "Self-awareness: imagining how others see you (medial prefrontal cortex)."],
+    acc:    [4, "Social error and pain."],
+    insula: [4, "Hot face and sinking feeling."],
+    amyg:   [3, "Social threat response."],
+    stem:   [3, "Blushing (more blood flow to the face) and a raised heart rate."],
+    lc:     [3, "Norepinephrine drives the flush."],
+  }},
+  { title: "Adopting a new pet", rules: [[/\b(adopt\w*|rescue\w*|new|got a|brought home)\b/, 2], [PET, 2]], regions: {
+    hypo:   [4, "Oxytocin from petting and eye contact."],
+    vta:    [4, "Dopamine from novelty and joy."],
+    nacc:   [4, "Reward and affection."],
+    amyg:   [2, "Stress is reduced through companionship."],
+    pfc:    [2, "Plans care routines and new responsibilities."],
+    somato: [2, "Soft touch of fur."],
+  }},
+];
+
+// ---------------------------------------------------------------------------
+// Matching
+// ---------------------------------------------------------------------------
+function normalize(s) {
+  return s.toLowerCase().replace(/[’`]/g, "'").replace(/[^a-z0-9$'\- ]+/g, " ").replace(/\s+/g, " ").trim();
+}
+function matchPreset(text) {
+  const t = normalize(text);
+  if (!t) return null;
+  let best = null;
+  PRESETS.forEach((p, i) => {
+    let score = 0, hits = 0;
+    for (const [re, w] of p.rules) if (re.test(t)) { score += w; hits++; }
+    if (score < (p.min ?? 4)) return;
+    if (!best || score > best.score || (score === best.score && hits > best.hits)) best = { p, score, hits, i };
+  });
+  return best?.p ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Claude fallback
+// ---------------------------------------------------------------------------
+const SDK_URL = "https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.3.0/+esm";
+const MODEL = "claude-opus-5-5";
+const KEY_STORE = "brainmap.apiKey";
+const CACHE_PREFIX = "brainmap.ai.v1.";
+const REGION_IDS = Object.keys(REGIONS);
+
+const SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "regions"],
+  properties: {
+    title: { type: "string", description: "Short title for the situation, e.g. 'Moving to a new city'." },
+    regions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "level", "produced", "used", "description"],
+        properties: {
+          id: { type: "string", enum: REGION_IDS },
+          level: { type: "integer", enum: [1, 2, 3, 4, 5] },
+          produced: { type: "string", description: "Hormones and neurotransmitters this region produces that matter in this situation." },
+          used: { type: "string", description: "Hormones and neurotransmitters this region responds to in this situation." },
+          description: { type: "string", description: "One or two plain sentences on exactly how this region is involved in this situation." },
+        },
+      },
+    },
+  },
+};
+
+const SYSTEM = `You explain neuroscience to a curious adult for a personal brain-map page.
+Given a life situation, choose the 4-8 brain regions most involved, from this fixed list (use only these ids):
+${REGION_IDS.map(id => `- ${id}: ${REGIONS[id].name}`).join("\n")}
+
+For each region give an involvement level from 1 (slightly involved) to 5 (very involved), the hormones and neurotransmitters it produces and uses that matter in this situation, and one or two plain sentences on how it is involved in this specific situation.
+Stick to well-established findings; prefer saying a region "tends to" do something over overclaiming. If the input is not a life situation, return the closest reasonable interpretation.`;
+
+function getKey() { try { return localStorage.getItem(KEY_STORE) || ""; } catch { return ""; } }
+function setKey(k) { try { k ? localStorage.setItem(KEY_STORE, k) : localStorage.removeItem(KEY_STORE); } catch {} }
+function cacheGet(k) { try { const v = localStorage.getItem(CACHE_PREFIX + k); return v ? JSON.parse(v) : null; } catch { return null; } }
+function cacheSet(k, v) { try { localStorage.setItem(CACHE_PREFIX + k, JSON.stringify(v)); } catch {} }
+
+class NeedsKey extends Error {}
+
+async function askClaude(situation) {
+  const apiKey = getKey();
+  if (!apiKey) throw new NeedsKey("Add your Claude API key to look up situations that aren't presets.");
+  const { default: Anthropic } = await import(SDK_URL);
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+  let msg;
+  try {
+    msg = await client.beta.messages.create({
+      model: MODEL,
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "high", format: { type: "json_schema", schema: SCHEMA } },
+      system: SYSTEM,
+      messages: [{ role: "user", content: `Situation: ${situation}` }],
+    });
+  } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) throw new NeedsKey("Claude rejected the API key. Check it and try again.");
+    if (err instanceof Anthropic.RateLimitError) throw new Error("Claude's rate limit was hit. Wait a minute and try again.");
+    if (err instanceof Anthropic.APIConnectionError) throw new Error("Couldn't reach Claude. Check your connection and try again.");
+    if (err instanceof Anthropic.APIError) throw new Error(`Claude returned an error (${err.status ?? "unknown"}): ${err.message}`);
+    throw err;
+  }
+  if (msg.stop_reason === "refusal") throw new Error("Claude declined to answer this one. Try rewording the situation.");
+  if (msg.stop_reason === "max_tokens") throw new Error("Claude's answer was cut off. Try a shorter description.");
+  const text = msg.content.filter(b => b.type === "text").map(b => b.text).join("");
+  const data = JSON.parse(text);
+  const seen = new Set();
+  const regions = (data.regions || []).filter(r => REGIONS[r.id] && !seen.has(r.id) && seen.add(r.id)).map(r => ({
+    id: r.id,
+    level: Math.min(5, Math.max(1, Math.round(Number(r.level) || 1))),
+    produced: String(r.produced || ""),
+    used: String(r.used || ""),
+    description: String(r.description || ""),
+  }));
+  if (!regions.length) throw new Error("Claude's answer didn't name any regions. Try rewording the situation.");
+  return { title: String(data.title || situation), regions };
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+const SVG_NS = "http://www.w3.org/2000/svg";
+const el = (name, attrs = {}, parent) => {
+  const n = document.createElementNS(SVG_NS, name);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (parent) parent.appendChild(n);
+  return n;
+};
+
+function levelColor(level) {
+  const css = getComputedStyle(document.documentElement);
+  const a = hex(css.getPropertyValue("--low")), b = hex(css.getPropertyValue("--high"));
+  const t = (level - 1) / 4;
+  return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",")})`;
+}
+function hex(s) { const h = s.trim().replace("#", ""); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
+
+const OUTLINES = {
+  side: svg => {
+    el("path", { class: "outline", d: "M60,172 C38,120 62,58 122,34 C182,10 272,12 332,40 C382,62 408,112 402,160 C398,192 376,206 350,210 C322,212 302,202 282,202 C262,206 246,206 232,202 C202,214 170,218 140,214 C100,210 70,202 60,172 Z" }, svg);
+    el("ellipse", { class: "outline", cx: 332, cy: 242, rx: 52, ry: 32 }, svg);
+    el("path", { class: "outline", d: "M240,196 L288,200 L282,308 L254,308 Z" }, svg);
+    el("path", { class: "callosum", d: "M118,122 C168,86 262,86 302,132" }, svg);
+  },
+  front: svg => {
+    el("path", { class: "outline", d: "M208,30 C150,20 80,40 60,100 C44,150 60,204 96,218 C122,228 152,218 172,212 C186,206 200,200 208,196 Z" }, svg);
+    el("path", { class: "outline", d: "M212,30 C270,20 340,40 360,100 C376,150 360,204 324,218 C298,228 268,218 248,212 C234,206 220,200 212,196 Z" }, svg);
+    el("ellipse", { class: "outline", cx: 150, cy: 282, rx: 46, ry: 22 }, svg);
+    el("ellipse", { class: "outline", cx: 270, cy: 282, rx: 46, ry: 22 }, svg);
+    el("path", { class: "outline", d: "M196,196 L224,196 L222,308 L198,308 Z" }, svg);
+  },
+};
+
+const regionNodes = {}; // id -> [g, g, ...]
+function buildView(svg, view) {
+  const defs = el("defs", {}, svg);
+  const f = el("filter", { id: `blur-${view}`, x: "-100%", y: "-100%", width: "300%", height: "300%" }, defs);
+  el("feGaussianBlur", { stdDeviation: 4 }, f);
+  OUTLINES[view](svg);
+  el("text", { class: "placeholder-note", x: 8, y: 314 }, svg).textContent = "Placeholder outline";
+  for (const [id, r] of Object.entries(REGIONS)) {
+    for (const [x, y, side] of r[view]) {
+      const g = el("g", { class: "region", "data-id": id, tabindex: side ? 0 : -1, role: "button", "aria-label": r.name }, svg);
+      el("circle", { class: "glow", cx: x, cy: y, r: 10, filter: `url(#blur-${view})` }, g);
+      el("circle", { class: "dot", cx: x, cy: y, r: 6 }, g);
+      if (side) {
+        const lbl = el("text", { class: "label", x: side === "r" ? x + 9 : x - 9, y: y + 3, "text-anchor": side === "r" ? "start" : "end" }, g);
+        lbl.textContent = shortName(r.name);
+      }
+      (regionNodes[id] ||= []).push(g);
+    }
+  }
+}
+function shortName(name) {
+  return name.replace(/ \(.*\)$/, "").replace("Orbitofrontal / ventromedial prefrontal cortex", "Orbitofrontal cortex");
+}
+
+function render(result, sourceNote) {
+  for (const nodes of Object.values(regionNodes)) for (const g of nodes) {
+    g.classList.remove("on", "focus");
+    g.querySelector(".dot").style.fill = "";
+  }
+  for (const r of result.regions) {
+    for (const g of regionNodes[r.id] || []) {
+      const c = levelColor(r.level);
+      g.classList.add("on");
+      g.querySelector(".dot").style.fill = c;
+      const glow = g.querySelector(".glow");
+      glow.style.fill = c;
+      glow.setAttribute("r", 7 + r.level * 2.4);
+    }
+  }
+  document.getElementById("tableTitle").textContent = `Regions involved: ${result.title}`;
+  const tbody = document.getElementById("rows");
+  tbody.textContent = "";
+  for (const r of [...result.regions].sort((a, b) => b.level - a.level)) {
+    const def = REGIONS[r.id];
+    const tr = document.createElement("tr");
+    tr.dataset.id = r.id;
+    const cells = [
+      def.name,
+      null,
+      r.produced || def.produces,
+      r.used || def.uses,
+      r.description,
+    ];
+    cells.forEach((text, i) => {
+      const td = document.createElement("td");
+      if (i === 1) {
+        td.className = "level";
+        const sw = document.createElement("span");
+        sw.className = "swatch";
+        sw.style.background = levelColor(r.level);
+        td.append(sw, `${r.level} / 5`);
+      } else td.textContent = text;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  setStatus(sourceNote);
+}
+
+// ---------------------------------------------------------------------------
+// Interaction
+// ---------------------------------------------------------------------------
+const tooltip = document.getElementById("tooltip");
+function focusRegion(id, on) {
+  for (const g of regionNodes[id] || []) g.classList.toggle("focus", on);
+  const row = document.querySelector(`#rows tr[data-id="${id}"]`);
+  if (row) row.classList.toggle("focus", on);
+  return row;
+}
+function showTip(id, x, y) {
+  const r = REGIONS[id];
+  tooltip.innerHTML = "";
+  const s = document.createElement("strong"); s.textContent = r.name;
+  tooltip.append(s, r.fn);
+  tooltip.style.display = "block";
+  const w = tooltip.offsetWidth, h = tooltip.offsetHeight;
+  tooltip.style.left = Math.max(8, Math.min(x + 14, innerWidth - w - 8)) + "px";
+  tooltip.style.top = Math.max(8, Math.min(y + 14, innerHeight - h - 8)) + "px";
+}
+function hideTip() { tooltip.style.display = "none"; }
+
+for (const svg of [document.getElementById("sideView"), document.getElementById("frontView")]) {
+  svg.addEventListener("pointermove", e => {
+    const g = e.target.closest(".region");
+    document.querySelectorAll(".region.focus, #rows tr.focus").forEach(n => n.classList.remove("focus"));
+    if (!g) return hideTip();
+    focusRegion(g.dataset.id, true);
+    showTip(g.dataset.id, e.clientX, e.clientY);
+  });
+  svg.addEventListener("pointerleave", () => {
+    hideTip();
+    document.querySelectorAll(".region.focus, #rows tr.focus").forEach(n => n.classList.remove("focus"));
+  });
+  svg.addEventListener("click", e => {
+    const g = e.target.closest(".region");
+    if (!g) return;
+    const row = focusRegion(g.dataset.id, true);
+    if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+}
+document.getElementById("rows").addEventListener("pointerover", e => {
+  const tr = e.target.closest("tr[data-id]");
+  document.querySelectorAll(".region.focus, #rows tr.focus").forEach(n => n.classList.remove("focus"));
+  if (tr) focusRegion(tr.dataset.id, true);
+});
+
+const statusEl = document.getElementById("status");
+function setStatus(text, isError = false) { statusEl.textContent = text; statusEl.classList.toggle("error", isError); }
+
+// API key dialog
+const dlg = document.getElementById("keyDialog");
+const keyInput = document.getElementById("keyInput");
+let pendingSituation = null;
+function openKeyDialog() { keyInput.value = getKey(); dlg.showModal(); keyInput.focus(); }
+document.getElementById("keyBtn").addEventListener("click", openKeyDialog);
+document.getElementById("keyCancel").addEventListener("click", () => { pendingSituation = null; dlg.close(); });
+document.getElementById("keyClear").addEventListener("click", () => { setKey(""); keyInput.value = ""; dlg.close(); setStatus("API key removed from this browser."); });
+document.getElementById("keyForm").addEventListener("submit", () => {
+  setKey(keyInput.value.trim());
+  if (pendingSituation) { const s = pendingSituation; pendingSituation = null; queueMicrotask(() => show(s)); }
+});
+
+// Main flow
+let busy = false;
+async function show(situation) {
+  situation = situation.trim();
+  if (!situation || busy) return;
+  const preset = matchPreset(situation);
+  if (preset) {
+    const result = { title: preset.title, regions: Object.entries(preset.regions).map(([id, [level, description]]) => ({ id, level, description })) };
+    render(result, `Matched preset: ${preset.title}`);
+    return;
+  }
+  const key = normalize(situation);
+  const cached = cacheGet(key);
+  if (cached) { render(cached, `No preset matched. Showing Claude's earlier answer for this situation (cached).`); return; }
+  busy = true;
+  setStatus("No preset matched. Asking Claude… this can take up to a minute.");
+  try {
+    const result = await askClaude(situation);
+    cacheSet(key, result);
+    render(result, "No preset matched. Generated by Claude.");
+  } catch (err) {
+    if (err instanceof NeedsKey) { setStatus(err.message, true); pendingSituation = situation; openKeyDialog(); }
+    else setStatus(err.message || String(err), true);
+  } finally { busy = false; }
+}
+
+document.getElementById("askForm").addEventListener("submit", e => { e.preventDefault(); show(document.getElementById("situation").value); });
+const list = document.getElementById("presetList");
+for (const p of PRESETS) { const o = document.createElement("option"); o.value = p.title; list.appendChild(o); }
+
+buildView(document.getElementById("sideView"), "side");
+buildView(document.getElementById("frontView"), "front");
+
+// Exposed for tests in the console.
+window.BrainMap = { matchPreset, PRESETS, REGIONS };
+</script>
+</body>
+</html>
