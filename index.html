@@ -50,7 +50,7 @@
   main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   h1 { font-size: 1.5rem; margin: 0; }
-  button {
+  button { -webkit-tap-highlight-color: transparent;
     font: inherit; color: var(--ink); background: var(--panel);
     border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer;
   }
@@ -106,13 +106,37 @@
   dialog p { font-size: .9rem; color: var(--muted); }
   .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   footer { margin-top: 28px; font-size: .8rem; color: var(--muted); }
+  .key-wrap { position: relative; }
+  #keyHelp {
+    display: none; position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; width: 300px; max-width: calc(100vw - 32px);
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; font-size: .85rem; line-height: 1.4; box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  }
+  #keyHelp ol, .key-steps ol { margin: 6px 0; padding-left: 20px; }
+  #keyHelp .tip-note { margin: 6px 0 0; color: var(--muted); }
+  @media (hover: hover) { .key-wrap:hover #keyHelp { display: block; } }
+  .key-wrap:focus-within #keyHelp { display: block; }
+  .key-steps { font-size: .88rem; background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .key-steps p { margin: 4px 0 0; }
+  dialog a { color: var(--high); }
 </style>
 </head>
 <body>
 <main>
   <header>
     <h1>BrainMap Demo</h1>
-    <button type="button" id="keyBtn">API key</button>
+    <span class="key-wrap">
+      <button type="button" id="keyBtn" aria-describedby="keyHelp">API key</button>
+      <div id="keyHelp" role="tooltip">
+      <strong>Use your own Claude API key</strong>
+      <ol>
+        <li>Sign in to the Claude Console at platform.claude.com and add credit under Billing.</li>
+        <li>Create a key under API Keys and copy it.</li>
+        <li>Click <strong>API key</strong> here, paste it and save.</li>
+      </ol>
+      <p class="tip-note">We recommend setting a monthly spend limit in the Console (under Limits) so a mistake can't run up a big bill.</p>
+      </div>
+    </span>
   </header>
 
   <form class="ask" id="askForm" autocomplete="off">
@@ -148,6 +172,15 @@
   <form method="dialog" id="keyForm">
     <strong>Claude API key</strong>
     <p>Used only when a situation doesn't match one of the 50 presets. The key is saved in this browser only and is sent only to Anthropic's API.</p>
+    <div class="key-steps">
+      <strong>Don't have a key?</strong>
+      <ol>
+        <li>Sign in to the <a href="https://platform.claude.com/" target="_blank" rel="noopener">Claude Console</a> and add credit under Billing.</li>
+        <li>Create a key under API Keys and copy it.</li>
+        <li>Paste it below and save.</li>
+      </ol>
+      <p>We recommend setting a monthly spend limit in the Console (under Limits) so a mistake can't run up a big bill.</p>
+    </div>
     <input id="keyInput" type="password" placeholder="sk-ant-..." autocomplete="off">
     <div class="dialog-actions">
       <button type="button" id="keyClear">Remove key</button>
