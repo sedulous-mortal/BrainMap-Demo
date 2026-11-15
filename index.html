@@ -738,7 +738,7 @@ function matchPreset(text) {
 // ---------------------------------------------------------------------------
 // Claude fallback
 // ---------------------------------------------------------------------------
-const SDK_URL = "https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.3.0/+esm";
+const SDK_URL = "./vendor/anthropic-sdk-1.3.0.mjs"; // Anthropic SDK bundled in this repo; see vendor/README.md
 const MODEL = "claude-opus-5-5";
 const KEY_STORE = "brainmap.apiKey";
 const CACHE_PREFIX = "brainmap.ai.v1.";
