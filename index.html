@@ -62,23 +62,24 @@
   }
   #status { min-height: 1.5em; color: var(--muted); font-size: .92rem; }
   #status.error { color: var(--warn-ink); background: var(--warn-bg); padding: 6px 10px; border-radius: 6px; }
-  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; align-items: start; }
   @media (max-width: 760px) { .views { grid-template-columns: 1fr; } }
   figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
   figcaption { font-size: .85rem; color: var(--muted); padding: 0 4px 4px; }
   svg { width: 100%; height: auto; display: block; }
-  .outline { fill: var(--brain-fill); stroke: var(--brain-stroke); stroke-width: 1.5; }
-  .callosum { fill: none; stroke: var(--brain-stroke); stroke-width: 6; stroke-linecap: round; opacity: .5; }
-  .placeholder-note { fill: var(--muted); font-size: 9px; font-style: italic; }
-  .region { cursor: pointer; }
-  .region .dot { fill: var(--dot); stroke: var(--panel); stroke-width: 1; }
-  .region .glow { opacity: 0; transition: opacity .25s; }
-  .region.on .glow { opacity: .85; }
-  .region .label { font-size: 8.5px; fill: var(--muted); pointer-events: none; }
-  .region.on .label { fill: var(--ink); font-weight: 600; }
-  .region.focus .dot { stroke: var(--focus); stroke-width: 2.5; }
-  .legend { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); margin: 12px 0 4px; }
-  .legend .bar { flex: 0 0 160px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--low), var(--high)); }
+  .views svg { background: #fff; border-radius: 6px; }
+  .region { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+  .views svg { -webkit-tap-highlight-color: transparent; }
+  .region .dot { fill: rgba(255,255,255,.75); stroke: #6b6775; }
+  .region.proj .dot { fill: rgba(255,255,255,.35); stroke-dasharray: 2 1.5; }
+  .region .glow { opacity: 0; transition: opacity .25s; pointer-events: none; }
+  .region.on .glow { opacity: .8; }
+  .region.on .dot { stroke: #fff; }
+  .region.on.proj .dot { fill-opacity: .7; }
+  .region .num { fill: #fff; font-weight: 700; pointer-events: none; font-family: system-ui, sans-serif; }
+  .region.focus .dot, .region:focus-visible .dot { stroke: #111; stroke-dasharray: none; }
+  .legend { white-space: nowrap; display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); margin: 12px 0 4px; }
+  .legend .bar { flex: 0 1 160px; min-width: 60px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--low), var(--high)); }
   h2 { font-size: 1.15rem; margin: 22px 0 8px; }
   .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
   table { border-collapse: collapse; width: 100%; font-size: .92rem; }
@@ -95,6 +96,11 @@
     padding: 8px 10px; font-size: .85rem; box-shadow: 0 6px 20px rgba(0,0,0,.18);
   }
   #tooltip strong { display: block; margin-bottom: 2px; }
+  #tooltip .tip-note { font-style: italic; color: var(--muted); margin-bottom: 4px; }
+  #tooltip .tip-now { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+  td.rank { font-weight: 700; color: var(--muted); width: 1%; }
+  td .where { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .key { font-size: .82rem; color: var(--muted); margin: 4px 0 0; }
   dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); max-width: 420px; width: calc(100% - 32px); }
   dialog input { width: 100%; font: inherit; padding: 8px 10px; margin: 8px 0; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
   dialog p { font-size: .9rem; color: var(--muted); }
@@ -117,21 +123,22 @@
   <div id="status" role="status"></div>
 
   <div class="views">
-    <figure><svg id="sideView" viewBox="0 0 420 320" role="img" aria-label="Side cutaway view of the brain"></svg><figcaption>Side view (midline cutaway)</figcaption></figure>
-    <figure><svg id="frontView" viewBox="0 0 420 320" role="img" aria-label="Front cutaway view of the brain"></svg><figcaption>Front view (cutaway slice)</figcaption></figure>
+    <figure><svg id="sideView" role="img" aria-label="Side cutaway view of the brain"></svg><figcaption>Side view: cut down the middle, front of the head on the left</figcaption></figure>
+    <figure><svg id="frontView" role="img" aria-label="Front cutaway view of the brain"></svg><figcaption>Front view: one half of a slice through the thalamus, seen from the front</figcaption></figure>
   </div>
   <div class="legend"><span>Slightly involved</span><span class="bar"></span><span>Very involved</span></div>
+  <p class="key">Hover or tap a circle for its name and role. Numbers match the table. A dashed circle lies deeper, off the midline.</p>
 
   <h2 id="tableTitle">Regions involved</h2>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Region</th><th>Involvement</th><th>Produced here</th><th>Used here</th><th>In this situation</th></tr></thead>
-      <tbody id="rows"><tr><td colspan="5" class="empty">Type a situation above to see which regions light up.</td></tr></tbody>
+      <thead><tr><th>#</th><th>Region</th><th>Involvement</th><th>Produced here</th><th>Used here</th><th>In this situation</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="6" class="empty">Type a situation above to see which regions light up.</td></tr></tbody>
     </table>
   </div>
 
   <footer>
-    For personal learning, not medical advice. Region positions are drawn on a placeholder outline until the Wikimedia Commons drawings (CC BY-SA) are added.
+    For personal learning, not medical advice. Drawings from Wikimedia Commons: side view <a href="https://commons.wikimedia.org/wiki/File:Brain_human_sagittal_section.svg">Brain human sagittal section</a>; front view <a href="https://commons.wikimedia.org/wiki/File:Gray718.png">Gray's Anatomy fig. 718</a> (public domain), printed labels removed. See assets/CREDITS.md for licences.
   </footer>
 </main>
 
@@ -152,82 +159,84 @@
 
 <script type="module">
 // ---------------------------------------------------------------------------
-// Regions: general function (tooltips), default chemistry, positions per view.
-// Positions are [x, y, labelSide] in a 420x320 viewBox; labelSide is
-// 'r', 'l' or null (null = no label, used for the mirrored twin in the front view).
-// These coordinates fit the placeholder outlines and will be re-fitted to the
-// Wikimedia drawings.
+// Regions: general function (tooltips), default chemistry, and where each one
+// sits on the two drawings.
+//   side:  [x, y, projected] in the sagittal drawing's viewBox (295 x 326).
+//          projected = true means the region lies off the midline (deeper to
+//          the side) and is drawn as a dashed ring at its projected position.
+//   front: [x, y] in the coronal slice (Gray718, 550 x 590). A region appears
+//          here only if this slice actually passes through it.
 // ---------------------------------------------------------------------------
 const REGIONS = {
   pfc:     { name: "Prefrontal cortex", fn: "Planning, decisions, self-control and working memory; can calm the amygdala's alarm.",
              produces: "Glutamate, GABA", uses: "Dopamine, norepinephrine, serotonin, acetylcholine, cortisol",
-             side: [[78, 92, 'r']], front: [] },
+             side: [[38, 80]], front: [] },
   ofc:     { name: "Orbitofrontal / ventromedial prefrontal cortex", fn: "Weighs value and reward, links feelings to choices, and updates expectations.",
              produces: "Glutamate, GABA", uses: "Dopamine, serotonin, endorphins, oxytocin",
-             side: [[82, 172, 'r']], front: [] },
+             side: [[56, 124]], front: [] },
   acc:     { name: "Anterior cingulate cortex", fn: "Notices conflict and errors and registers how much pain (physical or social) hurts.",
              produces: "Glutamate, GABA", uses: "Endorphins, dopamine, serotonin, oxytocin, norepinephrine",
-             side: [[140, 104, 'l']], front: [[196, 84, 'l'], [224, 84, null]] },
+             side: [[86, 68]], front: [] },
   insula:  { name: "Insula", fn: "Reads the body's internal state (heartbeat, gut, pain) and turns it into feelings such as disgust or longing.",
              produces: "Glutamate, GABA", uses: "Dopamine, serotonin, endorphins, oxytocin",
-             side: [[162, 148, 'l']], front: [[116, 132, 'l'], [304, 132, null]] },
+             side: [], front: [[392, 385]] },
   amyg:    { name: "Amygdala", fn: "Threat and emotion detector; tags experiences as important and triggers the stress response.",
              produces: "GABA, glutamate", uses: "Norepinephrine, cortisol, CRH, oxytocin, vasopressin, serotonin, endocannabinoids",
-             side: [[166, 204, 'l']], front: [[134, 184, 'l'], [286, 184, null]] },
+             side: [[130, 164, true]], front: [[315, 452]] },
   hippo:   { name: "Hippocampus", fn: "Forms new memories and gives them context (where and when); sensitive to stress hormones.",
              produces: "Glutamate, GABA", uses: "Cortisol, acetylcholine, norepinephrine, serotonin, estrogen",
-             side: [[222, 210, 'r']], front: [[162, 202, 'l'], [258, 202, null]] },
+             side: [[179, 153, true]], front: [] },
   hypo:    { name: "Hypothalamus", fn: "Master controller of hormones, hunger, thirst, temperature, sleep and the stress response.",
              produces: "CRH, oxytocin, vasopressin, orexin, TRH, GnRH, dopamine", uses: "Cortisol (feedback), leptin, ghrelin, estrogen, testosterone, serotonin",
-             side: [[196, 180, 'r']], front: [[210, 176, 'r']] },
+             side: [[126, 146]], front: [[233, 430]] },
   pit:     { name: "Pituitary gland", fn: "Releases hormones into the blood on the hypothalamus's orders, steering the adrenal, thyroid and sex glands.",
              produces: "ACTH, β-endorphin, prolactin, growth hormone, TSH, LH/FSH; releases oxytocin and vasopressin", uses: "CRH, TRH, GnRH, dopamine, cortisol (feedback)",
-             side: [[192, 224, 'l']], front: [[210, 196, 'l']] },
+             side: [[107, 172]], front: [] },
   thal:    { name: "Thalamus", fn: "Relay hub that routes senses to the cortex and helps set alertness.",
              produces: "Glutamate, GABA", uses: "Acetylcholine, norepinephrine, serotonin",
-             side: [[232, 140, 'r']], front: [[194, 120, 'l'], [226, 120, null]] },
+             side: [[160, 112]], front: [[268, 352]] },
   nacc:    { name: "Nucleus accumbens", fn: "Core of the reward circuit; drives wanting, motivation and pleasure.",
              produces: "GABA, enkephalin, dynorphin", uses: "Dopamine, endorphins, oxytocin, glutamate, serotonin",
-             side: [[126, 162, 'l']], front: [[180, 146, 'l'], [240, 146, null]] },
-  dstr:    { name: "Dorsal striatum", fn: "Turns repeated actions into habits and skills; part of the movement and reward loop.",
+             side: [[98, 126, true]], front: [] },
+  dstr:    { name: "Dorsal striatum (caudate and putamen)", fn: "Turns repeated actions into habits and skills; part of the movement and reward loop.",
              produces: "GABA, enkephalin, dynorphin", uses: "Dopamine, glutamate, acetylcholine",
-             side: [[196, 122, 'r']], front: [[160, 112, 'l'], [260, 112, null]] },
+             side: [], front: [[308, 318], [356, 358]] },
   vta:     { name: "Ventral tegmental area", fn: "Source of the brain's reward dopamine; fires for pleasure, surprise and things worth chasing.",
              produces: "Dopamine, GABA", uses: "Glutamate, endorphins, orexin, ghrelin, oxytocin",
-             side: [[250, 182, 'r']], front: [[210, 220, 'r']] },
+             side: [[148, 142]], front: [] },
   lc:      { name: "Locus coeruleus", fn: "Main source of norepinephrine; switches on alertness, vigilance and fight-or-flight.",
              produces: "Norepinephrine", uses: "CRH, orexin, glutamate, GABA",
-             side: [[272, 230, 'r']], front: [[222, 272, 'r']] },
+             side: [[176, 183]], front: [] },
   raphe:   { name: "Raphe nuclei", fn: "Main source of serotonin; shapes mood, patience, sleep and appetite.",
              produces: "Serotonin", uses: "Norepinephrine, GABA, CRH",
-             side: [[262, 212, 'r']], front: [[210, 256, 'l']] },
+             side: [[155, 172]], front: [] },
   pag:     { name: "Periaqueductal gray", fn: "Built-in pain control and defensive behaviours (freeze, flee, fight).",
              produces: "Endorphins, enkephalins, GABA, glutamate", uses: "Endorphins, endocannabinoids, oxytocin",
-             side: [[268, 166, 'r']], front: [[210, 238, 'l']] },
+             side: [[170, 138]], front: [] },
   motor:   { name: "Motor cortex", fn: "Plans and sends commands for voluntary movement.",
              produces: "Glutamate", uses: "Dopamine, acetylcholine, norepinephrine",
-             side: [[196, 40, 'r']], front: [[150, 42, 'l'], [270, 42, null]] },
+             side: [[150, 24]], front: [[300, 98]] },
   somato:  { name: "Somatosensory cortex", fn: "Maps touch, temperature, pain and body position.",
              produces: "Glutamate, GABA", uses: "Endorphins, norepinephrine, acetylcholine",
-             side: [[252, 46, 'r']], front: [[100, 74, 'l'], [320, 74, null]] },
+             side: [[182, 26]], front: [[425, 150]] },
   audit:   { name: "Auditory cortex", fn: "Processes sound, speech and music.",
              produces: "Glutamate, GABA", uses: "Acetylcholine, norepinephrine",
-             side: [], front: [[84, 160, 'l'], [336, 160, null]] },
+             side: [], front: [[450, 430]] },
   visual:  { name: "Visual cortex", fn: "Processes what you see: shape, motion, colour and faces.",
              produces: "Glutamate, GABA", uses: "Acetylcholine, norepinephrine",
-             side: [[382, 150, 'l']], front: [] },
+             side: [[258, 128]], front: [] },
   cereb:   { name: "Cerebellum", fn: "Coordinates and fine-tunes movement, balance and timing; helps learn motor skills.",
              produces: "GABA (Purkinje cells), glutamate", uses: "Norepinephrine, serotonin, acetylcholine",
-             side: [[332, 242, 'r']], front: [[150, 280, 'l'], [270, 280, null]] },
+             side: [[224, 182]], front: [] },
   stem:    { name: "Brainstem (medulla and vagal centres)", fn: "Runs automatic functions: heart rate, breathing, blood pressure, digestion.",
              produces: "Norepinephrine, adrenaline (C1 neurons), acetylcholine (vagus nerve)", uses: "Serotonin, endorphins, angiotensin",
-             side: [[264, 282, 'r']], front: [[210, 294, 'r']] },
+             side: [[158, 216]], front: [] },
   pineal:  { name: "Pineal gland", fn: "Releases melatonin in darkness to signal night and time sleep.",
              produces: "Melatonin", uses: "Norepinephrine (night signal from the hypothalamus)",
-             side: [[282, 146, 'r']], front: [] },
+             side: [[186, 123]], front: [] },
   bf:      { name: "Basal forebrain", fn: "Acetylcholine source that sharpens attention and wakefulness; where adenosine builds sleep pressure.",
              produces: "Acetylcholine, GABA", uses: "Adenosine, norepinephrine, orexin, histamine",
-             side: [[150, 184, 'l']], front: [[194, 162, 'l'], [226, 162, null]] },
+             side: [[114, 137]], front: [] },
 };
 
 // ---------------------------------------------------------------------------
@@ -259,7 +268,7 @@ const PRESETS = [
   { title: "Losing a pet", rules: [[PET, 2], [DIE, 2]], regions: {
     acc:    [4, "Signals the pain of losing a bonded companion, much like losing a family member."],
     nacc:   [4, "The daily rewards of the pet (greetings, touch) are gone; the reward system keeps expecting them."],
-    hypo:   [3, "Oxytocin from contact with the pet drops away while stress hormones rise."],
+    hypo:   [3, "Oxytocin from contact with the pet is missing while stress hormones tend to rise."],
     amyg:   [3, "Emotional distress and reactivity; reminders like the empty bed trigger waves of sadness."],
     hippo:  [3, "Strong routine memories (walks, feeding times) keep surfacing at the usual moments."],
     insula: [2, "Physical sense of absence and sadness in the body."],
@@ -292,7 +301,7 @@ const PRESETS = [
   }},
   // Relationships
   { title: "Breaking up with a partner", min: 3, rules: [[/\b(break(ing)? up|broke up|breakup|dumped|split up|splitting up|divorc\w*|separat(ed|ing)|ended (the|our|my) relationship)\b/, 3], [PARTNER, 1]], regions: {
-    acc:    [5, "Social rejection pain; brain scans of fresh break-ups show this region lighting up like physical pain."],
+    acc:    [5, "Social pain of rejection; in brain scans, recalling a recent break-up activates regions that also handle physical pain."],
     vta:    [4, "Still fires dopamine for the ex, so the craving resembles withdrawal."],
     nacc:   [4, "Yearning and craving for the lost partner; reminders feel rewarding and painful at once."],
     ofc:    [4, "Re-evaluates the relationship's value; rumination over what went wrong."],
@@ -305,7 +314,7 @@ const PRESETS = [
     nacc:   [5, "Intense wanting and pleasure focused on one person."],
     hypo:   [4, "Releases oxytocin and vasopressin, which build bonding; sex hormones also rise."],
     dstr:   [3, "Focus and motivation around the person; romantic love activates the caudate strongly."],
-    raphe:  [3, "Early love lowers serotonin activity, a pattern linked to obsessive thoughts about the person."],
+    raphe:  [2, "One small study found lower serotonin-transporter levels in early love, resembling obsessive thinking; this hasn't been firmly confirmed."],
     amyg:   [2, "Quieter than usual: fear and judgement are partly switched off."],
     pfc:    [2, "Critical judgement of the person is partly reduced (\"love is blind\")."],
   }},
@@ -440,7 +449,7 @@ const PRESETS = [
     lc:     [3, "Norepinephrine-driven urgency."],
   }},
   { title: "Getting lost", rules: [[/\b((got|get|getting|am|i'?m|we'?re) lost|lost my way|can'?t find my way|wrong turn|no idea where i am|disoriented)\b/, 4]], regions: {
-    hippo:  [5, "Its place and grid cells try to rebuild your mental map."],
+    hippo:  [5, "Its place cells, working with grid cells in the neighbouring entorhinal cortex, try to rebuild your mental map."],
     pfc:    [3, "Plans a new route and makes decisions."],
     amyg:   [3, "Anxiety at not knowing where you are."],
     lc:     [3, "Raises alertness to scan for landmarks."],
@@ -478,7 +487,6 @@ const PRESETS = [
     nacc:   [4, "Pleasure and motivation."],
     ofc:    [3, "Registers the boost in status and value."],
     pfc:    [3, "Starts planning new responsibilities."],
-    raphe:  [2, "Higher status is linked with better serotonin tone and confidence."],
   }},
   { title: "Starting a new job", rules: [[/\b(new job|first day|start(ing|ed)? (a |my )?(new )?(job|role|position)|onboarding|got hired|got the job)\b/, 4]], regions: {
     hippo:  [4, "Learns names, places and procedures."],
@@ -538,7 +546,7 @@ const PRESETS = [
     vta:    [5, "Strong dopamine reward."],
     nacc:   [5, "Elation and pleasure."],
     ofc:    [3, "Registers the status gain."],
-    hypo:   [3, "Testosterone and adrenaline rise with victory."],
+    hypo:   [3, "Drives the hormone chain (GnRH, then LH) behind testosterone, which often rises after a win; adrenaline is already high from competing."],
     lc:     [3, "Excitement and arousal."],
     hippo:  [3, "Encodes a vivid memory of the win."],
   }},
@@ -565,13 +573,13 @@ const PRESETS = [
     stem:   [4, "Raises heart rate, breathing and blood pressure."],
     hypo:   [4, "Body temperature control, stress hormones and growth hormone release."],
     pit:    [3, "Releases β-endorphin and growth hormone."],
-    pag:    [3, "Natural opioids and endocannabinoids create the \"runner's high\"."],
+    pag:    [3, "Part of the pain-control system; natural opioids and endocannabinoids released in long exercise reduce pain and may add to the \"runner's high\"."],
     vta:    [3, "Dopamine reward, especially after exercise."],
   }},
   { title: "Being sleep deprived", rules: [[/\b(sleep deprived|sleep|insomnia|all.?nighter|tired|exhausted|no sleep|didn'?t sleep|up all night|fatigue)\b/, 4]], regions: {
     bf:     [4, "Adenosine builds up here, driving heavy sleep pressure."],
     pfc:    [5, "Works poorly: worse focus, judgement and self-control."],
-    amyg:   [4, "Over-reactive emotions (up to 60% more reactive in studies)."],
+    amyg:   [4, "Over-reactive emotions: about 60% more reactive in one well-known study."],
     hippo:  [3, "Harder to store new memories."],
     thal:   [3, "Attention lapses as sensory relay flickers."],
     hypo:   [3, "Hunger hormones shift (more ghrelin, less leptin); cortisol rhythm off."],
@@ -622,7 +630,7 @@ const PRESETS = [
   { title: "Laughing with friends", rules: [[/\b(laugh\w*|joke\w*|funny|hilarious|comedy|giggl\w*)\b/, 4]], regions: {
     nacc:   [4, "Reward from humour."],
     vta:    [3, "Dopamine release."],
-    pag:    [3, "Releases endorphins; laughing together boosts social bonding."],
+    dstr:   [3, "Social laughter releases the brain's own opioids here and in the thalamus and insula, which is thought to help bonding."],
     motor:  [3, "Laughter movements in the face and chest."],
     stem:   [3, "Breathing patterns of laughter."],
     pfc:    [3, "\"Gets\" the joke by resolving the surprise."],
@@ -642,7 +650,7 @@ const PRESETS = [
     hypo:   [3, "Cortisol tends to fall."],
     stem:   [3, "Calmer heart rate (more vagal tone)."],
     visual: [3, "Takes in natural patterns that are easy to process."],
-    raphe:  [2, "Daylight supports serotonin."],
+    raphe:  [2, "Brain serotonin production tends to be higher on brighter days."],
   }},
   { title: "Receiving a gift", rules: [[/\b(gift|present|surprise|got me|gave me)\b/, 4]], regions: {
     vta:    [4, "Dopamine from a pleasant surprise."],
@@ -657,7 +665,7 @@ const PRESETS = [
     insula: [4, "Hot face and sinking feeling."],
     amyg:   [3, "Social threat response."],
     stem:   [3, "Blushing (more blood flow to the face) and a raised heart rate."],
-    lc:     [3, "Norepinephrine drives the flush."],
+    lc:     [3, "Raises arousal; the flush itself comes from sympathetic nerves widening blood vessels in the face."],
   }},
   { title: "Adopting a new pet", rules: [[/\b(adopt\w*|rescue\w*|new|got a|brought home)\b/, 2], [PET, 2]], regions: {
     hypo:   [4, "Oxytocin from petting and eye contact."],
@@ -793,78 +801,71 @@ function levelColor(level) {
 }
 function hex(s) { const h = s.trim().replace("#", ""); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
 
-const OUTLINES = {
-  side: svg => {
-    el("path", { class: "outline", d: "M60,172 C38,120 62,58 122,34 C182,10 272,12 332,40 C382,62 408,112 402,160 C398,192 376,206 350,210 C322,212 302,202 282,202 C262,206 246,206 232,202 C202,214 170,218 140,214 C100,210 70,202 60,172 Z" }, svg);
-    el("ellipse", { class: "outline", cx: 332, cy: 242, rx: 52, ry: 32 }, svg);
-    el("path", { class: "outline", d: "M240,196 L288,200 L282,308 L254,308 Z" }, svg);
-    el("path", { class: "callosum", d: "M118,122 C168,86 262,86 302,132" }, svg);
-  },
-  front: svg => {
-    el("path", { class: "outline", d: "M208,30 C150,20 80,40 60,100 C44,150 60,204 96,218 C122,228 152,218 172,212 C186,206 200,200 208,196 Z" }, svg);
-    el("path", { class: "outline", d: "M212,30 C270,20 340,40 360,100 C376,150 360,204 324,218 C298,228 268,218 248,212 C234,206 220,200 212,196 Z" }, svg);
-    el("ellipse", { class: "outline", cx: 150, cy: 282, rx: 46, ry: 22 }, svg);
-    el("ellipse", { class: "outline", cx: 270, cy: 282, rx: 46, ry: 22 }, svg);
-    el("path", { class: "outline", d: "M196,196 L224,196 L222,308 L198,308 Z" }, svg);
-  },
+const VIEWS = {
+  side:  { w: 295.248, h: 250, img: "assets/Brain_human_sagittal_section.svg", fullH: 326.109, r: 4.6, font: 5.2 },
+  front: { x0: 140, y0: 70, w: 410, h: 500, fullW: 550, fullH: 590, img: "assets/Gray718-unlabeled.png", r: 9, font: 10 },
 };
 
 const regionNodes = {}; // id -> [g, g, ...]
+let current = null;     // id -> { level, description, rank } for the situation shown
 function buildView(svg, view) {
+  const cfg = VIEWS[view];
+  svg.setAttribute("viewBox", `${cfg.x0 || 0} ${cfg.y0 || 0} ${cfg.w} ${cfg.h}`);
   const defs = el("defs", {}, svg);
   const f = el("filter", { id: `blur-${view}`, x: "-100%", y: "-100%", width: "300%", height: "300%" }, defs);
-  el("feGaussianBlur", { stdDeviation: 4 }, f);
-  OUTLINES[view](svg);
-  el("text", { class: "placeholder-note", x: 8, y: 314 }, svg).textContent = "Placeholder outline";
+  el("feGaussianBlur", { stdDeviation: cfg.r * 0.7 }, f);
+  el("image", { href: cfg.img, x: 0, y: 0, width: cfg.fullW || cfg.w, height: cfg.fullH || cfg.h }, svg);
   for (const [id, r] of Object.entries(REGIONS)) {
-    for (const [x, y, side] of r[view]) {
-      const g = el("g", { class: "region", "data-id": id, tabindex: side ? 0 : -1, role: "button", "aria-label": r.name }, svg);
-      el("circle", { class: "glow", cx: x, cy: y, r: 10, filter: `url(#blur-${view})` }, g);
-      el("circle", { class: "dot", cx: x, cy: y, r: 6 }, g);
-      if (side) {
-        const lbl = el("text", { class: "label", x: side === "r" ? x + 9 : x - 9, y: y + 3, "text-anchor": side === "r" ? "start" : "end" }, g);
-        lbl.textContent = shortName(r.name);
-      }
+    for (const [x, y, projected] of r[view]) {
+      const g = el("g", { class: "region" + (projected ? " proj" : ""), "data-id": id, tabindex: 0, role: "button",
+                          "aria-label": r.name + (projected ? " (lies off the midline)" : "") }, svg);
+      el("circle", { class: "glow", cx: x, cy: y, r: cfg.r * 1.6, filter: `url(#blur-${view})` }, g);
+      el("circle", { class: "dot", cx: x, cy: y, r: cfg.r, "stroke-width": cfg.r * 0.22 }, g);
+      el("text", { class: "num", x, y: y + cfg.font * 0.36, "font-size": cfg.font, "text-anchor": "middle" }, g);
+      g.dataset.r = cfg.r;
       (regionNodes[id] ||= []).push(g);
     }
   }
 }
-function shortName(name) {
-  return name.replace(/ \(.*\)$/, "").replace("Orbitofrontal / ventromedial prefrontal cortex", "Orbitofrontal cortex");
-}
 
 function render(result, sourceNote) {
+  const ranked = [...result.regions].sort((a, b) => b.level - a.level);
+  current = Object.fromEntries(ranked.map((r, i) => [r.id, { ...r, rank: i + 1 }]));
   for (const nodes of Object.values(regionNodes)) for (const g of nodes) {
     g.classList.remove("on", "focus");
     g.querySelector(".dot").style.fill = "";
+    g.querySelector(".num").textContent = "";
   }
-  for (const r of result.regions) {
+  for (const r of ranked) {
+    const c = levelColor(r.level);
     for (const g of regionNodes[r.id] || []) {
-      const c = levelColor(r.level);
       g.classList.add("on");
       g.querySelector(".dot").style.fill = c;
+      g.querySelector(".num").textContent = current[r.id].rank;
       const glow = g.querySelector(".glow");
       glow.style.fill = c;
-      glow.setAttribute("r", 7 + r.level * 2.4);
+      glow.setAttribute("r", g.dataset.r * (1.1 + r.level * 0.35));
     }
   }
   document.getElementById("tableTitle").textContent = `Regions involved: ${result.title}`;
   const tbody = document.getElementById("rows");
   tbody.textContent = "";
-  for (const r of [...result.regions].sort((a, b) => b.level - a.level)) {
+  for (const r of ranked) {
     const def = REGIONS[r.id];
     const tr = document.createElement("tr");
     tr.dataset.id = r.id;
-    const cells = [
-      def.name,
-      null,
-      r.produced || def.produces,
-      r.used || def.uses,
-      r.description,
-    ];
+    const views = [def.side.length && "side", def.front.length && "front"].filter(Boolean).join(" and ");
+    const cells = [String(current[r.id].rank), def.name, null, r.produced || def.produces, r.used || def.uses, r.description];
     cells.forEach((text, i) => {
       const td = document.createElement("td");
+      if (i === 0) td.className = "rank";
       if (i === 1) {
+        td.textContent = text;
+        const small = document.createElement("div");
+        small.className = "where";
+        small.textContent = views ? `Shown in ${views} view` : "Not shown on these drawings";
+        td.appendChild(small);
+      } else if (i === 2) {
         td.className = "level";
         const sw = document.createElement("span");
         sw.className = "swatch";
@@ -879,50 +880,68 @@ function render(result, sourceNote) {
 }
 
 // ---------------------------------------------------------------------------
-// Interaction
+// Interaction: hover (mouse) or tap (touch) a region for its name, what it
+// does, and its role in the current situation. The matching table row is
+// highlighted too.
 // ---------------------------------------------------------------------------
 const tooltip = document.getElementById("tooltip");
-function focusRegion(id, on) {
-  for (const g of regionNodes[id] || []) g.classList.toggle("focus", on);
+let pinned = null;
+function clearFocus() { document.querySelectorAll(".region.focus, #rows tr.focus").forEach(n => n.classList.remove("focus")); }
+function focusRegion(id) {
+  clearFocus();
+  for (const g of regionNodes[id] || []) g.classList.add("focus");
   const row = document.querySelector(`#rows tr[data-id="${id}"]`);
-  if (row) row.classList.toggle("focus", on);
+  if (row) row.classList.add("focus");
   return row;
 }
-function showTip(id, x, y) {
-  const r = REGIONS[id];
-  tooltip.innerHTML = "";
-  const s = document.createElement("strong"); s.textContent = r.name;
-  tooltip.append(s, r.fn);
+function showTip(g, x, y) {
+  const id = g.dataset.id, r = REGIONS[id], now = current?.[id];
+  tooltip.textContent = "";
+  const add = (tag, text, cls) => { const n = document.createElement(tag); n.textContent = text; if (cls) n.className = cls; tooltip.appendChild(n); };
+  add("strong", (now ? `${now.rank}. ` : "") + r.name);
+  if (g.classList.contains("proj")) add("div", "Lies deeper, off the midline; shown at its projected position.", "tip-note");
+  add("div", r.fn);
+  if (now) add("div", `Involvement ${now.level}/5: ${now.description}`, "tip-now");
   tooltip.style.display = "block";
   const w = tooltip.offsetWidth, h = tooltip.offsetHeight;
   tooltip.style.left = Math.max(8, Math.min(x + 14, innerWidth - w - 8)) + "px";
-  tooltip.style.top = Math.max(8, Math.min(y + 14, innerHeight - h - 8)) + "px";
+  tooltip.style.top = (y + 14 + h > innerHeight - 8 ? Math.max(8, y - h - 14) : y + 14) + "px";
 }
-function hideTip() { tooltip.style.display = "none"; }
+function hideTip() { tooltip.style.display = "none"; pinned = null; clearFocus(); }
+function centerOf(g) { const b = g.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }
 
 for (const svg of [document.getElementById("sideView"), document.getElementById("frontView")]) {
   svg.addEventListener("pointermove", e => {
+    if (e.pointerType !== "mouse" || pinned) return;
     const g = e.target.closest(".region");
-    document.querySelectorAll(".region.focus, #rows tr.focus").forEach(n => n.classList.remove("focus"));
-    if (!g) return hideTip();
-    focusRegion(g.dataset.id, true);
-    showTip(g.dataset.id, e.clientX, e.clientY);
+    if (!g) { tooltip.style.display = "none"; clearFocus(); return; }
+    focusRegion(g.dataset.id);
+    showTip(g, e.clientX, e.clientY);
   });
-  svg.addEventListener("pointerleave", () => {
-    hideTip();
-    document.querySelectorAll(".region.focus, #rows tr.focus").forEach(n => n.classList.remove("focus"));
-  });
+  svg.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !pinned) { tooltip.style.display = "none"; clearFocus(); } });
   svg.addEventListener("click", e => {
     const g = e.target.closest(".region");
-    if (!g) return;
-    const row = focusRegion(g.dataset.id, true);
-    if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (!g) return hideTip();
+    e.stopPropagation();
+    if (pinned === g) return hideTip();
+    pinned = g;
+    focusRegion(g.dataset.id);
+    showTip(g, e.clientX, e.clientY);
   });
+  svg.addEventListener("keydown", e => {
+    const g = e.target.closest(".region");
+    if (!g || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault();
+    pinned = g; focusRegion(g.dataset.id); showTip(g, ...centerOf(g));
+  });
+  svg.addEventListener("focusout", () => { if (pinned) hideTip(); });
 }
+document.addEventListener("click", e => { if (pinned && !e.target.closest(".region")) hideTip(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") hideTip(); });
 document.getElementById("rows").addEventListener("pointerover", e => {
   const tr = e.target.closest("tr[data-id]");
-  document.querySelectorAll(".region.focus, #rows tr.focus").forEach(n => n.classList.remove("focus"));
-  if (tr) focusRegion(tr.dataset.id, true);
+  if (pinned) return;
+  if (tr) focusRegion(tr.dataset.id); else clearFocus();
 });
 
 const statusEl = document.getElementById("status");
@@ -954,13 +973,13 @@ async function show(situation) {
   }
   const key = normalize(situation);
   const cached = cacheGet(key);
-  if (cached) { render(cached, `No preset matched. Showing Claude's earlier answer for this situation (cached).`); return; }
+  if (cached) { render(cached, `No preset matched. Showing Claude's earlier answer for this situation (cached, not reviewed like the presets).`); return; }
   busy = true;
   setStatus("No preset matched. Asking Claude… this can take up to a minute.");
   try {
     const result = await askClaude(situation);
     cacheSet(key, result);
-    render(result, "No preset matched. Generated by Claude.");
+    render(result, "No preset matched. Generated by Claude, so it hasn't been reviewed like the presets; check details that matter.");
   } catch (err) {
     if (err instanceof NeedsKey) { setStatus(err.message, true); pendingSituation = situation; openKeyDialog(); }
     else setStatus(err.message || String(err), true);
