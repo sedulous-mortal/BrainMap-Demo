@@ -54,6 +54,7 @@
     font: inherit; color: var(--ink); background: var(--panel);
     border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer;
   }
+  button:disabled { opacity: .5; cursor: default; }
   button.primary { background: var(--high); border-color: var(--high); color: #fff; }
   form.ask { display: flex; gap: 8px; margin: 16px 0 6px; }
   form.ask input {
@@ -136,6 +137,7 @@
       </ol>
       <p class="tip-note">We recommend setting a monthly spend limit in the Console (under Limits) so a mistake can't run up a big bill.</p>
       <p class="tip-note">This site has no server, and your key is never in its code. It's saved only in your browser's site data and sent only to Anthropic. To delete it, click <strong>API key</strong> then <strong>Remove key</strong>, or clear this site's data (cookies and site data) in your browser settings. Clearing the cache alone may not remove it.</p>
+      <p class="tip-note">Claude's answers, including the situations you typed, are also saved in your browser so repeats are instant and free. <strong>Remove key</strong> doesn't delete them; use <strong>Remove saved answers</strong> in the same dialog. After that, typing those situations again calls Claude again and uses more tokens.</p>
       </div>
     </span>
   </header>
@@ -174,6 +176,7 @@
     <strong>Claude API key</strong>
     <p>Used only when a situation doesn't match one of the 50 presets. This site has no server, and your key is never in its code: it's saved only in this browser's site data and sent only to Anthropic's API.</p>
     <p>To delete it later, choose <strong>Remove key</strong> below, or clear this site's data (cookies and site data) in your browser settings. Clearing the cache alone may not remove it.</p>
+    <p>Claude's answers, including the situations you typed, are also saved in this browser so repeats are instant and free. <strong>Remove key</strong> doesn't delete them; use <strong>Remove saved answers</strong>. After that, typing those situations again calls Claude again and uses more tokens.</p>
     <div class="key-steps">
       <strong>Don't have a key?</strong>
       <ol>
@@ -186,6 +189,7 @@
     <input id="keyInput" type="password" placeholder="sk-ant-..." autocomplete="off">
     <div class="dialog-actions">
       <button type="button" id="keyClear">Remove key</button>
+      <button type="button" id="answersClear">Remove saved answers</button>
       <button type="button" id="keyCancel">Cancel</button>
       <button class="primary" type="submit" value="save">Save</button>
     </div>
@@ -775,6 +779,8 @@ function getKey() { try { return localStorage.getItem(KEY_STORE) || ""; } catch 
 function setKey(k) { try { k ? localStorage.setItem(KEY_STORE, k) : localStorage.removeItem(KEY_STORE); } catch {} }
 function cacheGet(k) { try { const v = localStorage.getItem(CACHE_PREFIX + k); return v ? JSON.parse(v) : null; } catch { return null; } }
 function cacheSet(k, v) { try { localStorage.setItem(CACHE_PREFIX + k, JSON.stringify(v)); } catch {} }
+function cacheKeys() { try { return Object.keys(localStorage).filter(k => k.startsWith(CACHE_PREFIX)); } catch { return []; } }
+function cacheClear() { const keys = cacheKeys(); try { keys.forEach(k => localStorage.removeItem(k)); } catch {} return keys.length; }
 
 class NeedsKey extends Error {}
 
@@ -986,7 +992,20 @@ function setStatus(text, isError = false) { statusEl.textContent = text; statusE
 const dlg = document.getElementById("keyDialog");
 const keyInput = document.getElementById("keyInput");
 let pendingSituation = null;
-function openKeyDialog() { keyInput.value = getKey(); dlg.showModal(); keyInput.focus(); }
+const answersBtn = document.getElementById("answersClear");
+function updateAnswersBtn() {
+  const n = cacheKeys().length;
+  answersBtn.textContent = n ? `Remove saved answers (${n})` : "No saved answers";
+  answersBtn.disabled = n === 0;
+}
+function openKeyDialog() { keyInput.value = getKey(); updateAnswersBtn(); dlg.showModal(); keyInput.focus(); }
+answersBtn.addEventListener("click", () => {
+  const n = cacheKeys().length;
+  if (!n) return;
+  if (!confirm(`Delete ${n} saved Claude answer${n === 1 ? "" : "s"} from this browser? Typing those situations again will call Claude again and use more tokens.`)) return;
+  cacheClear(); updateAnswersBtn();
+  setStatus(`Removed ${n} saved answer${n === 1 ? "" : "s"} from this browser.`);
+});
 document.getElementById("keyBtn").addEventListener("click", openKeyDialog);
 document.getElementById("keyCancel").addEventListener("click", () => { pendingSituation = null; dlg.close(); });
 document.getElementById("keyClear").addEventListener("click", () => { setKey(""); keyInput.value = ""; dlg.close(); setStatus("API key removed from this browser."); });
